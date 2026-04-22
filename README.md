@@ -1,4 +1,4 @@
-# Jalan-Ready
+# Jalan-Ready (NOT COMPLETED !!!)
 A smart infrastructure reporting system that combines YOLOv11 detection with Z.ai to seamlessly route validated pothole reports to the correct authorities (JKR/PBT)
 
 # 🛣️ Jalan-Ready
@@ -49,4 +49,4 @@ Jalan-Ready bridges the gap between the public and infrastructure authorities. B
    python -m venv venv
    source venv/bin/activate  # On Windows use: venv\Scripts\activate
 
-## not completed
+

@@ -3,8 +3,13 @@ from datetime import datetime
 import os
 
 class DatabaseManager:
-    def __init__(self, db_name="jalan_ready.db"):
+    def __init__(self, db_name=None):
+        if db_name is None:
+            db_name = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "..", "..", "data", "jalan-ready.db")
+            )
         self.conn = sqlite3.connect(db_name, check_same_thread=False)
+        self.conn.row_factory = sqlite3.Row
         self.create_tables()
 
     def create_tables(self):

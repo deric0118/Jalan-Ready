@@ -77,3 +77,11 @@ def get_authority_email(jurisdiction: str) -> str:
     if jurisdiction in SELANGOR_DISTRICTS:
         return SELANGOR_DISTRICTS[jurisdiction]["email"]
     return "petalingjkr.hackathon@gmail.com"
+
+def get_authority_hq(jurisdiction: str):
+    """Returns (lat, lon) for the District Office HQ."""
+    if jurisdiction in SELANGOR_DISTRICTS:
+        return SELANGOR_DISTRICTS[jurisdiction]["lat"], SELANGOR_DISTRICTS[jurisdiction]["lon"]
+    
+    # Fallback to a central Selangor location if unknown
+    return 3.073, 101.518

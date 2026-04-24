@@ -30,9 +30,9 @@
  * --------
  * BACKEND DEV: Replace with your actual backend address.
  * Production example:  'https://api.sirca.selangor.gov.my/v1'
- * Development example: 'http://localhost:8000/api'
+ * Development example: 'http://localhost:8000'
  */
-const BASE_URL = 'http://localhost:8000/api';
+const BASE_URL = 'http://localhost:8000';
 
 /**
  * DEFAULT_HEADERS

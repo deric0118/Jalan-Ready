@@ -1,8 +1,8 @@
 import sqlite3
 import time
 from datetime import datetime, timedelta
-from backend.database_manager import DatabaseManager
-from backend.engine_tools import tool_c_user_communicator
+from backend.core.database_manager import DatabaseManager
+from backend.core.engine_tools import tool_c_user_communicator
 
 class BackgroundGovernanceEngine:
     def __init__(self, interval_seconds=10):

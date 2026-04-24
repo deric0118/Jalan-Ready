@@ -1,9 +1,9 @@
-from backend.database_manager import DatabaseManager
-from backend.engine_tools import tool_b_route_optimizer, tool_c_user_communicator
-from backend.weather_service import WeatherService
-from backend.geo_config import determine_jurisdiction # <--- ADDED IMPORT
-from backend.email_service import EmailService
-from backend.geo_config import determine_jurisdiction, get_authority_email
+from backend.core.database_manager import DatabaseManager
+from backend.core.engine_tools import tool_b_route_optimizer, tool_c_user_communicator
+from backend.services.weather_service import WeatherService
+from backend.services.geo_config import determine_jurisdiction # <--- ADDED IMPORT
+from backend.services.email_service import EmailService
+from backend.services.geo_config import determine_jurisdiction, get_authority_email
 import json
 import sqlite3
 

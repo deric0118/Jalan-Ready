@@ -1,5 +1,5 @@
 import sqlite3
-from backend.orchestrator import JalanReadyAgent
+from backend.core.orchestrator import JalanReadyAgent
 import time
 
 def inject_historical_data(db_path="jalan_ready.db"):

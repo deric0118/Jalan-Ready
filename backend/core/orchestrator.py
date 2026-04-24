@@ -1,15 +1,21 @@
-from backend.core.database_manager import DatabaseManager
-from backend.core.engine_tools import tool_b_route_optimizer, tool_c_user_communicator
-from backend.services.weather_service import WeatherService
-from backend.services.geo_config import determine_jurisdiction # <--- ADDED IMPORT
-from backend.services.email_service import EmailService
-from backend.services.geo_config import determine_jurisdiction, get_authority_email
+try:
+    from backend.core.database_manager import DatabaseManager
+    from backend.core.engine_tools import tool_b_route_optimizer, tool_c_user_communicator
+    from backend.services.weather_service import WeatherService
+    from backend.services.geo_config import determine_jurisdiction, get_authority_email, get_authority_hq
+    from backend.services.email_service import EmailService
+except ModuleNotFoundError:
+    from core.database_manager import DatabaseManager
+    from core.engine_tools import tool_b_route_optimizer, tool_c_user_communicator
+    from services.weather_service import WeatherService
+    from services.geo_config import determine_jurisdiction, get_authority_email, get_authority_hq
+    from services.email_service import EmailService
 import json
 import sqlite3
 
 class JalanReadyAgent:
-    def __init__(self):
-        self.db = DatabaseManager()
+    def __init__(self, db_name=None):
+        self.db = DatabaseManager(db_name)
         self.weather = WeatherService()
         
         self.SYSTEM_PROMPT = """
@@ -158,5 +164,6 @@ class JalanReadyAgent:
             print(f"ℹ️ No pending tasks found for {jurisdiction}.")
             return []
 
-        optimized_plan = tool_b_route_optimizer(tasks)
+        start_lat, start_lon = get_authority_hq(jurisdiction)
+        optimized_plan = tool_b_route_optimizer(tasks, start_lat, start_lon)
         return optimized_plan

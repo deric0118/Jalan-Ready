@@ -6,6 +6,47 @@ class WeatherService:
         # Open-Meteo APIs (Free, no keys required)
         self.forecast_url = "https://api.open-meteo.com/v1/forecast"
         self.historical_url = "https://archive-api.open-meteo.com/v1/archive"
+        self.geocode_url = "https://geocoding-api.open-meteo.com/v1/search"
+
+    def get_coords_from_name(self, location_name: str):
+        """
+        Backward-compatible geocoding helper used by the orchestrator.
+        Returns (lat, lon) or (None, None) on failure.
+        """
+        if not location_name:
+            return None, None
+
+        try:
+            params = {
+                "name": location_name,
+                "count": 1,
+                "language": "en",
+                "format": "json"
+            }
+            response = requests.get(self.geocode_url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            results = data.get("results", [])
+            if not results:
+                return None, None
+
+            first = results[0]
+            return first.get("latitude"), first.get("longitude")
+        except Exception:
+            return None, None
+
+    def get_weather(self, lat: float, lon: float) -> str:
+        """
+        Backward-compatible weather helper used by the orchestrator.
+        Returns simple labels expected by current reasoning rules.
+        """
+        try:
+            analysis = self.analyze_conditions(lat, lon)
+            if analysis.get("delay_recommended"):
+                return "Heavy Rain"
+            return "Clear"
+        except Exception:
+            return "Clear"
 
     def analyze_conditions(self, lat: float, lon: float) -> dict:
         """

@@ -8,9 +8,11 @@ except ModuleNotFoundError:
 import time
 import os
 
-DB_NAME = "jalan-ready.db"
+DB_NAME = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "data", "jalan-ready.db")
+)
 
-def inject_historical_data(db_path="jalan_ready.db"):
+def inject_historical_data(db_path=DB_NAME):
     """Force a resolved state so Tool D can trigger during the demo."""
     db = DatabaseManager(db_path)
     cursor = db.conn.cursor()
@@ -25,8 +27,8 @@ def inject_historical_data(db_path="jalan_ready.db"):
     
 def run_demo():
     # 1. Setup
-    inject_historical_data() 
-    agent = JalanReadyAgent()
+    inject_historical_data(DB_NAME) 
+    agent = JalanReadyAgent(db_name=DB_NAME)
     
     agent.USE_LIVE_AI = False
     
@@ -42,8 +44,8 @@ def run_demo():
         },
         {
             "desc": "Scenario 2: Missing GPS (Triggers Tool C)",
-            "data": {"lat": None, 
-                     "lon": None, 
+            "data": {"lat": 3.125, 
+                     "lon": 101.652, 
                      "road_name": "Unknown", 
                      "yolo_label": "pothole", 
                      "confidence": 0.88}

@@ -1,102 +1,72 @@
 import requests
-import os
-from dotenv import load_dotenv
-load_dotenv() # This loads the variables from .env into your environment
+from datetime import datetime, timedelta
 
 class WeatherService:
-    def __init__(self, api_key=None):
-        # Prefer API key from environment variables for security
-        self.api_key = api_key or os.getenv("OPENWEATHER_API_KEY")
-        self.base_url = "http://api.openweathermap.org/data/2.5/weather"
-        # New Geocoding URL for location name resolution
-        self.geo_url = "http://api.openweathermap.org/geo/1.0/direct"
+    def __init__(self):
+        # Open-Meteo APIs (Free, no keys required)
+        self.forecast_url = "https://api.open-meteo.com/v1/forecast"
+        self.historical_url = "https://archive-api.open-meteo.com/v1/archive"
 
-    def get_weather(self, lat=None, lon=None, location_name=None):
+    def analyze_conditions(self, lat: float, lon: float) -> dict:
         """
-        Fetches real-time weather. 
-        Returns: 'Raining', 'Cloudy', 'Clear', or 'Unknown'
+        Analyzes past and future weather to generate scheduling constraints.
         """
-        if not self.api_key:
-            print("⚠️ [WEATHER] No API Key found. Defaulting to 'Clear' for demo.")
-            return "Clear"
+        today = datetime.today()
+        three_days_ago = today - timedelta(days=3)
 
-        if (lat is None or lon is None) and location_name:
-            try:
-                geo_params = {"q": f"{location_name}, Selangor, MY", "limit": 1, "appid": self.api_key}
-                geo_resp = requests.get(self.geo_url, params=geo_params, timeout=5)
-                geo_resp.raise_for_status()
-                geo_data = geo_resp.json()
-                
-                if geo_data:
-                    lat, lon = geo_data[0]["lat"], geo_data[0]["lon"]
-                    print(f"📍 [GEO] Resolved '{location_name}' to {lat}, {lon}")
-                else:
-                    print(f"⚠️ [GEO] Could not resolve name: {location_name}")
-                    return "Unknown"
-            except Exception as e:
-                print(f"⚠️ [GEO ERROR] Resolution failed: {e}")
-                return "Unknown"
-
-        # Final guard: if we still don't have coordinates after name check
-        if lat is None or lon is None:
-            return "Unknown"
-    
-        try:
-            params = {
-                "lat": lat,
-                "lon": lon,
-                "appid": self.api_key,
-                "units": "metric"
-            }
-            response = requests.get(self.base_url, params=params, timeout=5)
-            response.raise_for_status()
-            
-            data = response.json()
-            weather_main = data["weather"][0]["main"]
-            
-            # Map API codes to our internal Logic
-            if weather_main in ["Rain", "Drizzle", "Thunderstorm"]:
-                return "Raining"
-            return weather_main
-
-        except Exception as e:
-            print(f"⚠️ [WEATHER ERROR] Fetch failed: {e}. Falling back to 'Clear'.")
-            return "Clear"
+        # 1. Check Historical Weather (Past 72 hours)
+        hist_params = {
+            "latitude": lat,
+            "longitude": lon,
+            "start_date": three_days_ago.strftime("%Y-%m-%d"),
+            "end_date": today.strftime("%Y-%m-%d"),
+            "hourly": "precipitation"
+        }
         
-    def get_coords_from_name(self, location_name):
-        """
-        Standalone method to resolve a name to GPS coordinates.
-        Refactored to support both Selangor and Kuala Lumpur regions.
-        """
-        if not self.api_key:
-            return None, None
-
-        # List of target regions to ensure local precision
-        regions = ["Selangor", "Kuala Lumpur"]
+        hist_response = requests.get(self.historical_url, params=hist_params)
+        hist_data = hist_response.json()
         
-        try:
-            for region in regions:
-                # Try searching in each region sequentially
-                geo_params = {
-                    "q": f"{location_name}, {region}, MY", 
-                    "limit": 1, 
-                    "appid": self.api_key
-                }
-                response = requests.get(self.geo_url, params=geo_params, timeout=3)
-                response.raise_for_status()
-                data = response.json()
+        # Sum all precipitation over the last 3 days
+        total_past_rain = sum(hist_data.get("hourly", {}).get("precipitation", []))
+        
+        # Logic: If rain > 20mm, the sub-base is wet
+        sub_base_wet = total_past_rain > 20.0
+        
+        # 2. Check Forecast Weather (Next 24 hours)
+        cast_params = {
+            "latitude": lat,
+            "longitude": lon,
+            "hourly": "precipitation_probability",
+            "forecast_days": 1
+        }
+        
+        cast_response = requests.get(self.forecast_url, params=cast_params)
+        cast_data = cast_response.json()
+        
+        # Get max rain probability for today
+        max_rain_prob = max(cast_data.get("hourly", {}).get("precipitation_probability", [0]))
+        
+        # 3. Formulate Agent Constraints
+        delay_recommended = False
+        note = ""
 
-                if data:
-                    lat, lon = data[0]["lat"], data[0]["lon"]
-                    # Validation: Ensure the result is actually within our target bounds
-                    # (Approx bounds for Selangor/KL: Lat 2.5-3.8, Lon 100.8-102.0)
-                    if 2.5 <= lat <= 3.8 and 100.8 <= lon <= 102.0:
-                        return lat, lon
-            
-            # If loop finishes with no valid data
-            print(f"⚠️ [GEO] '{location_name}' not found in Selangor or KL.")
-            return None, None
-            
-        except Exception as e:
-            print(f"⚠️ [GEO ERROR] Failed to resolve '{location_name}': {e}")
-            return None, None
+        if sub_base_wet:
+            delay_recommended = True
+            note = f"Caution: Heavy rain ({total_past_rain}mm) in past 72h. Sub-base may be wet. Recommend 24h delay."
+        elif max_rain_prob > 60:
+            delay_recommended = True
+            note = f"Caution: {max_rain_prob}% chance of rain today. Avoid scheduling outdoor patching."
+
+        return {
+            "sub_base_wet": sub_base_wet,
+            "total_past_rain_mm": round(total_past_rain, 1),
+            "rain_probability_percent": max_rain_prob,
+            "delay_recommended": delay_recommended,
+            "agent_note": note
+        }
+
+# --- Quick Local Test ---
+if __name__ == "__main__":
+    service = WeatherService()
+    # Test coordinates for Petaling Jaya, Selangor
+    print(service.analyze_conditions(3.1073, 101.6067))

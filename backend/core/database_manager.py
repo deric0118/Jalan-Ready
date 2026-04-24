@@ -33,6 +33,7 @@ class DatabaseManager:
                     'REPORTED', 
                     'IN_PROGRESS', 
                     'ESCALATED', 
+                    'DELAYED_TRAFFIC',
                     'RESOLVED',
                     'MANUAL_REVIEW'
                 )) DEFAULT 'NEW',
@@ -101,3 +102,23 @@ class DatabaseManager:
         except Exception as e:
             print(f"⚠️ [SYSTEM ERROR] Tool D failure: {e}")
             return False  # Fail-safe: assume not recurring if DB fails
+
+    def update_workflow_state(self, report_id, new_state, note=None):
+        """Update a report's workflow state and optionally append a reasoning note."""
+        cursor = self.conn.cursor()
+        if note:
+            cursor.execute(
+                '''
+                UPDATE reports
+                SET workflow_state = ?,
+                    reasoning_path = COALESCE(reasoning_path, '') || ?
+                WHERE id = ?
+                ''',
+                (new_state, f" [{note}]", report_id),
+            )
+        else:
+            cursor.execute(
+                "UPDATE reports SET workflow_state = ? WHERE id = ?",
+                (new_state, report_id),
+            )
+        self.conn.commit()

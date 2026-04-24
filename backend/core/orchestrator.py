@@ -2,12 +2,14 @@ try:
     from backend.core.database_manager import DatabaseManager
     from backend.core.engine_tools import tool_b_route_optimizer, tool_c_user_communicator
     from backend.services.weather_service import WeatherService
+    from backend.services.traffic_service import TrafficService
     from backend.services.geo_config import determine_jurisdiction, get_authority_email, get_authority_hq
     from backend.services.email_service import EmailService
 except ModuleNotFoundError:
     from core.database_manager import DatabaseManager
     from core.engine_tools import tool_b_route_optimizer, tool_c_user_communicator
     from services.weather_service import WeatherService
+    from services.traffic_service import TrafficService
     from services.geo_config import determine_jurisdiction, get_authority_email, get_authority_hq
     from services.email_service import EmailService
 import json
@@ -165,5 +167,60 @@ class JalanReadyAgent:
             return []
 
         start_lat, start_lon = get_authority_hq(jurisdiction)
-        optimized_plan = tool_b_route_optimizer(tasks, start_lat, start_lon)
+        origin = f"{start_lat},{start_lon}"
+        traffic = None
+        traffic_init_error = None
+        try:
+            traffic = TrafficService()
+        except Exception as e:
+            traffic_init_error = str(e)
+
+        routable_tasks = []
+        for task in tasks:
+            report_id = task["id"] if hasattr(task, "keys") else task[0]
+            lat = task["latitude"] if hasattr(task, "keys") else task[2]
+            lon = task["longitude"] if hasattr(task, "keys") else task[3]
+            road_name = task["road_name"] if hasattr(task, "keys") else task[4]
+            destination = f"{lat},{lon}" if lat is not None and lon is not None else road_name
+
+            if not destination:
+                self.db.update_workflow_state(
+                    report_id,
+                    "MANUAL_REVIEW",
+                    "AUTO-MANUAL-REVIEW: Missing traffic destination",
+                )
+                continue
+
+            if traffic is None:
+                self.db.update_workflow_state(
+                    report_id,
+                    "MANUAL_REVIEW",
+                    f"AUTO-MANUAL-REVIEW: Traffic API unavailable ({traffic_init_error})",
+                )
+                continue
+
+            traffic_result = traffic.analyze_traffic_constraints(origin=origin, destination=destination)
+            if traffic_result.get("traffic_density") == "Unknown":
+                self.db.update_workflow_state(
+                    report_id,
+                    "MANUAL_REVIEW",
+                    "AUTO-MANUAL-REVIEW: Traffic API response unavailable",
+                )
+                continue
+
+            if traffic_result.get("delay_recommended"):
+                self.db.update_workflow_state(
+                    report_id,
+                    "DELAYED_TRAFFIC",
+                    "AUTO-DELAY: Severe traffic condition detected",
+                )
+                continue
+
+            routable_tasks.append(task)
+
+        if not routable_tasks:
+            print(f"ℹ️ No routable tasks found for {jurisdiction} after traffic checks.")
+            return []
+
+        optimized_plan = tool_b_route_optimizer(routable_tasks, start_lat, start_lon)
         return optimized_plan

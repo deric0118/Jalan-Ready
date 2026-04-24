@@ -1,5 +1,12 @@
-# backend/app.py
+import base64
+import hashlib
+import hmac
+import os
+import secrets
+import sqlite3
+
 from fastapi import FastAPI
+from fastapi import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from core.orchestrator import JalanReadyAgent # Import your Brain!
@@ -17,12 +24,81 @@ app.add_middleware(
 # Initialize your Agent
 agent = JalanReadyAgent()
 
+USER_DB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "data", "user_data.db")
+)
+
+
+def _get_user_conn():
+    conn = sqlite3.connect(USER_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def _init_user_db():
+    conn = _get_user_conn()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            email TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            phone_number TEXT NOT NULL UNIQUE,
+            id_number TEXT NOT NULL UNIQUE,
+            address TEXT NOT NULL,
+            postcode TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    conn.commit()
+    conn.close()
+
+
+def _hash_password(password: str) -> str:
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 200000)
+    salt_b64 = base64.b64encode(salt).decode("utf-8")
+    digest_b64 = base64.b64encode(digest).decode("utf-8")
+    return f"{salt_b64}${digest_b64}"
+
+
+def _verify_password(password: str, stored_hash: str) -> bool:
+    try:
+        salt_b64, digest_b64 = stored_hash.split("$", 1)
+        salt = base64.b64decode(salt_b64.encode("utf-8"))
+        stored_digest = base64.b64decode(digest_b64.encode("utf-8"))
+        candidate = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 200000)
+        return hmac.compare_digest(candidate, stored_digest)
+    except Exception:
+        return False
+
+
+_init_user_db()
+
 # Define what the incoming "Context Packet" should look like
 class ReportData(BaseModel):
     yolo_label: str
     confidence: float
     gps_coordinates: str
     weather: str
+
+
+class SignupRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+    phone_number: str
+    id_number: str
+    address: str
+    postcode: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
 
 # The Waiter receiving the order!
 @app.post("/submit_report")
@@ -37,6 +113,81 @@ def submit_report(data: ReportData):
     return {
         "status": "success",
         "agent_response": result
+    }
+
+
+@app.post("/api/signup")
+def signup(payload: SignupRequest):
+    conn = _get_user_conn()
+    cursor = conn.cursor()
+    email = payload.email.strip().lower()
+    phone_number = payload.phone_number.strip()
+    id_number = payload.id_number.strip().upper()
+    try:
+        cursor.execute(
+            """
+            INSERT INTO users (name, email, password_hash, phone_number, id_number, address, postcode)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                payload.name.strip(),
+                email,
+                _hash_password(payload.password),
+                phone_number,
+                id_number,
+                payload.address.strip(),
+                payload.postcode.strip(),
+            ),
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise HTTPException(
+            status_code=409,
+            detail="Account already exists with this email, phone number, or ID number.",
+        )
+
+    cursor.execute(
+        "SELECT id, name, email, phone_number, id_number, address, postcode FROM users WHERE email = ?",
+        (email,),
+    )
+    user = cursor.fetchone()
+    conn.close()
+
+    return {
+        "message": "Signup successful",
+        "token": secrets.token_urlsafe(32),
+        "user": dict(user),
+    }
+
+
+@app.post("/api/login")
+def login(payload: LoginRequest):
+    conn = _get_user_conn()
+    cursor = conn.cursor()
+    email = payload.email.strip().lower()
+    cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
+    user = cursor.fetchone()
+    conn.close()
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+
+    if not _verify_password(payload.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+
+    return {
+        "message": "Login successful",
+        "token": secrets.token_urlsafe(32),
+        "user": {
+            "id": user["id"],
+            "name": user["name"],
+            "email": user["email"],
+            "phone_number": user["phone_number"],
+            "id_number": user["id_number"],
+            "address": user["address"],
+            "postcode": user["postcode"],
+        },
     }
 
 # Run this file using: uvicorn app:app --reload

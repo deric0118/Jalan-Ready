@@ -110,4 +110,4 @@ class WeatherService:
 if __name__ == "__main__":
     service = WeatherService()
     # Test coordinates for Petaling Jaya, Selangor
-    print(service.analyze_conditions(3.1073, 101.6067))
+    print(service.analyze_conditions(22.707447, 9.382115))

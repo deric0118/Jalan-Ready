@@ -25,39 +25,59 @@ class VisionService:
 
     def analyze_image(self, image_path: str) -> dict:
         """
-        Processes an image and returns the highest confidence defect for the Context Packet.
+        Processes an image and returns all defects for the Context Packet.
         """
         # --- MOCK MODE FOR HACKATHON DEV ---
         if self.use_mock:
             return {
-                "yolo_label": "Alligator Cracking",
-                "confidence": 0.88,
-                "vision_note": "Severe base layer failure detected (MOCK DATA)."
+                "primary_label": "crack",
+                "max_confidence": 0.88,
+                "total_defects_found": 4,
+                "vision_note": "Visual defects confirmed: 4x crack (MOCK DATA)."
             }
 
         # --- REAL YOLOv8 ONNX INFERENCE ---
         results = self.model(image_path)
+        boxes = results[0].boxes
         
         # Check if nothing was detected
-        if len(results[0].boxes) == 0:
+        if len(boxes) == 0:
             return {
-                "yolo_label": "Clear Road",
-                "confidence": 1.0,
+                "primary_label": "Clear Road",
+                "max_confidence": 1.0,
+                "total_defects_found": 0,
                 "vision_note": "No infrastructure defects detected in frame."
             }
 
-        # Extract the highest confidence detection
-        # Sort boxes by confidence to ensure we get the primary defect
-        boxes = sorted(results[0].boxes, key=lambda x: x.conf, reverse=True)
-        top_box = boxes[0]
-        
-        label_name = self.model.names[int(top_box.cls)]
-        confidence = float(top_box.conf)
+        # Count all detections and find the highest confidence
+        from collections import Counter
+        label_counts = Counter()
+        max_conf = 0.0
+        primary_label = ""
+        all_detections = []
+
+        for box in boxes:
+            label_name = self.model.names[int(box.cls)]
+            conf = float(box.conf)
+            
+            label_counts[label_name] += 1
+            all_detections.append({"label": label_name, "confidence": round(conf, 2)})
+            
+            # Track the highest confidence label to use as the primary category
+            if conf > max_conf:
+                max_conf = conf
+                primary_label = label_name
+
+        # Create a smart summary string for the Agent (e.g., "4x crack, 1x pothole")
+        summary_parts = [f"{count}x {label}" for label, count in label_counts.items()]
+        summary_str = ", ".join(summary_parts)
 
         return {
-            "yolo_label": label_name,
-            "confidence": round(confidence, 2),
-            "vision_note": f"Visual defect confirmed: {label_name}"
+            "primary_label": primary_label,
+            "max_confidence": round(max_conf, 2),
+            "total_defects_found": len(boxes),
+            "raw_detections": all_detections, # Optional: Full list if you need exact numbers later
+            "vision_note": f"Visual defects confirmed: {summary_str}. Highest confidence: {round(max_conf, 2)}"
         }
 
 # --- Quick Local Test ---

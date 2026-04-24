@@ -2,6 +2,8 @@ from backend.database_manager import DatabaseManager
 from backend.engine_tools import tool_b_route_optimizer, tool_c_user_communicator
 from backend.weather_service import WeatherService
 from backend.geo_config import determine_jurisdiction # <--- ADDED IMPORT
+from backend.email_service import EmailService
+from backend.geo_config import determine_jurisdiction, get_authority_email
 import json
 import sqlite3
 
@@ -98,6 +100,10 @@ class JalanReadyAgent:
             cursor.execute(query, values)
             self.db.conn.commit()
             print(f"✅ [SAVED] ID: {cursor.lastrowid} | State: {workflow_state}")
+            if workflow_state == 'REPORTED':
+                target_email = get_authority_email(jurisdiction)
+                email_client = EmailService()
+                email_client.send_report(target_email, jurisdiction, urgency, perception_data)
             print(f"🧠 [REASONING PATH]: {reasoning_path}")
             
         except sqlite3.Error as e:

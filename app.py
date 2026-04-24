@@ -1,6 +1,6 @@
 import streamlit as st
 
-st.set_page_config(page_title="Selangor RoadCare", page_icon="🛣️")
+st.set_page_config(page_title="Jalan-Ready", page_icon="🛣️")
 
 st.title("Selangor Intelligent RoadCare")
 st.write("Environment setup successful!")

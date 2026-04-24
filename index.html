@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SIRCa — Selangor Intelligent RoadCare Command Center</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Rajdhani (display) + DM Sans (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="css/style.css" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            selangor: {
+              red:    '#C8102E',
+              gold:   '#F5A623',
+              redDark:'#9B0B22',
+            },
+            sirca: {
+              navy:   '#0B1829',
+              blue:   '#0D2A4A',
+              steel:  '#1E3A5F',
+              mid:    '#2A4A6B',
+              accent: '#0EA5E9',
+              teal:   '#0D9488',
+              term:   '#0A1120',
+              termBorder: '#1E3A5F',
+            },
+            slate: {
+              50:  '#F8FAFC',
+              100: '#F1F5F9',
+              150: '#EBF0F6',
+              200: '#E2E8F0',
+              300: '#CBD5E1',
+              400: '#94A3B8',
+              500: '#64748B',
+              600: '#475569',
+              700: '#334155',
+              800: '#1E293B',
+              900: '#0F172A',
+            }
+          },
+          fontFamily: {
+            display: ['Rajdhani', 'sans-serif'],
+            body:    ['DM Sans', 'sans-serif'],
+            mono:    ['JetBrains Mono', 'monospace'],
+          },
+          boxShadow: {
+            'card':    '0 2px 20px rgba(11,24,41,0.08), 0 1px 4px rgba(11,24,41,0.05)',
+            'card-lg': '0 8px 40px rgba(11,24,41,0.12), 0 2px 8px rgba(11,24,41,0.06)',
+            'term':    '0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(14,165,233,0.1)',
+            'glow-red': '0 0 20px rgba(200,16,46,0.3)',
+            'glow-accent': '0 0 20px rgba(14,165,233,0.4)',
+            'dispatch': '0 4px 24px rgba(16,185,129,0.4), 0 2px 8px rgba(16,185,129,0.2)',
+          }
+        }
+      }
+    }
+  </script>
+</head>
+
+<body class="font-body bg-slate-100 text-slate-800 min-h-screen">
+
+  <!-- ════════════════════════════════════════════════
+       TOP NAVBAR
+  ════════════════════════════════════════════════ -->
+  <nav id="sirca-navbar" class="fixed top-0 left-0 right-0 z-50 h-16 bg-sirca-navy border-b border-sirca-steel flex items-center px-6 gap-6 shadow-lg">
+
+    <!-- Logo Mark -->
+    <div class="flex items-center gap-3 shrink-0">
+      <div class="relative w-9 h-9">
+        <div class="absolute inset-0 rounded-lg bg-selangor-red opacity-20 animate-pulse-slow"></div>
+        <div class="relative flex items-center justify-center w-9 h-9 rounded-lg bg-selangor-red/10 border border-selangor-red/40">
+          <i class="fa-solid fa-road text-selangor-red text-sm"></i>
+        </div>
+      </div>
+      <div class="leading-none">
+        <span class="font-display text-xl font-700 tracking-widest text-white">SIRCa</span>
+        <div class="text-[9px] tracking-[0.2em] text-slate-400 uppercase font-light mt-0.5">Selangor Intelligent RoadCare</div>
+      </div>
+    </div>
+
+    <!-- Separator -->
+    <div class="w-px h-8 bg-sirca-steel mx-2"></div>
+
+    <!-- Nav Pills -->
+    <div class="hidden md:flex items-center gap-1">
+      <button class="nav-pill active" data-view="dashboard"><i class="fa-solid fa-gauge-high mr-1.5 text-xs"></i>Dashboard</button>
+      <button class="nav-pill" data-view="reports"><i class="fa-solid fa-file-lines mr-1.5 text-xs"></i>Reports</button>
+      <button class="nav-pill" data-view="map"><i class="fa-solid fa-map-location-dot mr-1.5 text-xs"></i>Field Map</button>
+      <button class="nav-pill" data-view="analytics"><i class="fa-solid fa-chart-mixed mr-1.5 text-xs"></i>Analytics</button>
+    </div>
+
+    <!-- Spacer -->
+    <div class="flex-1"></div>
+
+    <!-- Status Badges -->
+    <div class="hidden lg:flex items-center gap-3">
+      <div class="status-badge">
+        <span class="status-dot bg-emerald-400"></span>
+        <span class="text-xs text-slate-300">Vision Model <span class="text-emerald-400 font-medium">Online</span></span>
+      </div>
+      <div class="status-badge">
+        <span class="status-dot bg-selangor-gold animate-pulse"></span>
+        <span class="text-xs text-slate-300">Z.AI GLM <span class="text-selangor-gold font-medium">Active</span></span>
+      </div>
+      <div class="status-badge">
+        <span class="status-dot bg-sirca-accent"></span>
+        <span class="text-xs text-slate-300">Open-Meteo <span class="text-sirca-accent font-medium">Synced</span></span>
+      </div>
+    </div>
+
+    <!-- Separator -->
+    <div class="w-px h-8 bg-sirca-steel mx-2 hidden lg:block"></div>
+
+    <!-- Live Clock -->
+    <div class="text-right shrink-0">
+      <div id="live-time" class="font-mono text-sm font-semibold text-white tracking-wider"></div>
+      <div id="live-date" class="text-[10px] text-slate-400 uppercase tracking-widest"></div>
+    </div>
+
+    <!-- User Avatar -->
+    <div class="ml-3 w-8 h-8 rounded-full bg-sirca-steel border border-sirca-mid flex items-center justify-center cursor-pointer hover:border-sirca-accent transition-colors">
+      <i class="fa-solid fa-user text-slate-300 text-xs"></i>
+    </div>
+  </nav>
+
+  <!-- ════════════════════════════════════════════════
+       SELANGOR STATE BANNER (thin accent bar)
+  ════════════════════════════════════════════════ -->
+  <div class="fixed top-16 left-0 right-0 z-40 h-0.5 bg-gradient-to-r from-selangor-red via-selangor-gold to-selangor-red opacity-60"></div>
+
+  <!-- ════════════════════════════════════════════════
+       MAIN CONTENT AREA
+  ════════════════════════════════════════════════ -->
+  <main class="pt-[4.5rem] px-4 pb-8 md:px-6 lg:px-8">
+
+    <!-- ─── TOP METRIC STRIP ─────────────────────── -->
+    <section id="metrics-strip" class="mt-5 grid grid-cols-2 md:grid-cols-4 gap-3">
+
+      <div class="metric-card" style="--accent: #C8102E">
+        <div class="metric-icon bg-selangor-red/10 text-selangor-red"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <div>
+          <div class="metric-value" data-count="47">0</div>
+          <div class="metric-label">Active Defects</div>
+        </div>
+        <div class="metric-trend text-selangor-red"><i class="fa-solid fa-arrow-trend-up text-xs mr-1"></i>+12%</div>
+      </div>
+
+      <div class="metric-card" style="--accent: #0EA5E9">
+        <div class="metric-icon bg-sirca-accent/10 text-sirca-accent"><i class="fa-solid fa-clipboard-check"></i></div>
+        <div>
+          <div class="metric-value" data-count="128">0</div>
+          <div class="metric-label">Work Orders</div>
+        </div>
+        <div class="metric-trend text-emerald-500"><i class="fa-solid fa-arrow-trend-up text-xs mr-1"></i>+8%</div>
+      </div>
+
+      <div class="metric-card" style="--accent: #F5A623">
+        <div class="metric-icon bg-selangor-gold/10 text-selangor-gold"><i class="fa-solid fa-hourglass-half"></i></div>
+        <div>
+          <div class="metric-value" data-count="34">0</div>
+          <div class="metric-label">Awaiting Dispatch</div>
+        </div>
+        <div class="metric-trend text-slate-400"><i class="fa-solid fa-minus text-xs mr-1"></i>0%</div>
+      </div>
+
+      <div class="metric-card" style="--accent: #0D9488">
+        <div class="metric-icon bg-sirca-teal/10 text-sirca-teal"><i class="fa-solid fa-circle-check"></i></div>
+        <div>
+          <div class="metric-value" data-count="93">0</div>
+          <div class="metric-label">Resolved (30d)</div>
+        </div>
+        <div class="metric-trend text-emerald-500"><i class="fa-solid fa-arrow-trend-up text-xs mr-1"></i>+24%</div>
+      </div>
+
+    </section>
+
+    <!-- ─── THREE-COLUMN MAIN GRID ────────────────── -->
+    <section class="mt-5 grid grid-cols-1 lg:grid-cols-[1.1fr_1.2fr_1fr] gap-5 items-start">
+
+      <!-- ══════════════════════════════════════════
+           COLUMN 1: CITIZEN INPUT & VISION
+      ══════════════════════════════════════════ -->
+      <div class="flex flex-col gap-5">
+
+        <!-- Chat Input Card -->
+        <div class="sirca-card" id="card-citizen">
+          <div class="card-header">
+            <div class="card-header-icon bg-selangor-red/10 text-selangor-red">
+              <i class="fa-solid fa-comments"></i>
+            </div>
+            <div>
+              <h2 class="card-title">Citizen Report Portal</h2>
+              <p class="card-sub">Powered by SIRCa Intake Agent</p>
+            </div>
+            <div class="ml-auto flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-50 border border-emerald-200">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span class="text-[10px] font-medium text-emerald-600 uppercase tracking-wide">Live</span>
+            </div>
+          </div>
+
+          <!-- Chat Messages -->
+          <div id="chat-window" class="mt-4 space-y-3 max-h-72 overflow-y-auto chat-scroll pr-1">
+
+            <!-- Bot message -->
+            <div class="chat-msg bot">
+              <div class="chat-avatar bot-avatar"><i class="fa-solid fa-robot text-xs"></i></div>
+              <div class="chat-bubble bot-bubble">
+                Selamat datang! Please describe the road damage you've encountered, or upload a photo for AI analysis.
+              </div>
+            </div>
+
+            <!-- User message -->
+            <div class="chat-msg user">
+              <div class="chat-bubble user-bubble">
+                There's a big pothole near my school in PJ. It's been there for weeks! 😤
+              </div>
+              <div class="chat-avatar user-avatar"><i class="fa-solid fa-user text-xs"></i></div>
+            </div>
+
+            <!-- Bot -->
+            <div class="chat-msg bot">
+              <div class="chat-avatar bot-avatar"><i class="fa-solid fa-robot text-xs"></i></div>
+              <div class="chat-bubble bot-bubble">
+                Understood. Can you share your location or upload a photo? I'll route this to the correct authority immediately.
+              </div>
+            </div>
+
+            <!-- User uploads image -->
+            <div class="chat-msg user">
+              <div class="chat-bubble user-bubble">
+                <div class="flex items-center gap-2 text-xs text-sky-200 mb-1">
+                  <i class="fa-solid fa-image"></i>
+                  <span class="font-medium">pothole_jalan_ss7.jpg</span>
+                </div>
+                <div class="w-full h-20 rounded-lg bg-sirca-navy/60 border border-sirca-steel flex items-center justify-center overflow-hidden">
+                  <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Pothole_in_road.jpg/320px-Pothole_in_road.jpg"
+                       alt="Pothole" class="h-full w-full object-cover rounded-lg opacity-90" />
+                </div>
+              </div>
+              <div class="chat-avatar user-avatar"><i class="fa-solid fa-user text-xs"></i></div>
+            </div>
+
+            <!-- Bot analysis trigger -->
+            <div class="chat-msg bot" id="chat-analysis-msg">
+              <div class="chat-avatar bot-avatar"><i class="fa-solid fa-robot text-xs"></i></div>
+              <div class="chat-bubble bot-bubble">
+                <div class="flex items-center gap-2 mb-1">
+                  <i class="fa-solid fa-brain text-selangor-gold animate-pulse"></i>
+                  <span class="font-semibold text-slate-700">Analysing with YOLOv8...</span>
+                </div>
+                <div class="w-full bg-slate-200 rounded-full h-1.5 mt-2">
+                  <div id="analysis-bar" class="h-1.5 rounded-full bg-selangor-red analysis-progress"></div>
+                </div>
+                <div id="analysis-done" class="hidden mt-2 text-xs text-emerald-600 font-medium">
+                  <i class="fa-solid fa-circle-check mr-1"></i>Vision analysis complete. See panel →
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Input Bar -->
+          <div class="mt-4 flex items-center gap-2">
+            <label for="file-upload" class="cursor-pointer flex items-center justify-center w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 text-slate-500 hover:bg-selangor-red/10 hover:text-selangor-red hover:border-selangor-red/30 transition-all" title="Upload Photo">
+              <i class="fa-solid fa-camera text-sm"></i>
+            </label>
+            <input id="file-upload" type="file" accept="image/*" class="hidden" />
+            <input id="chat-input" type="text" placeholder="Describe the damage..." class="flex-1 h-9 px-3 text-sm rounded-xl bg-slate-100 border border-slate-200 focus:outline-none focus:border-sirca-accent focus:ring-1 focus:ring-sirca-accent/20 placeholder-slate-400 transition-all" />
+            <button id="chat-send" class="flex items-center justify-center w-9 h-9 rounded-xl bg-selangor-red text-white hover:bg-selangor-redDark transition-colors shadow-sm">
+              <i class="fa-solid fa-paper-plane text-sm"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Vision Analysis Card -->
+        <div class="sirca-card" id="card-vision">
+          <div class="card-header">
+            <div class="card-header-icon bg-sirca-accent/10 text-sirca-accent">
+              <i class="fa-solid fa-eye"></i>
+            </div>
+            <div>
+              <h2 class="card-title">Vision Perception · YOLOv8</h2>
+              <p class="card-sub">Defect detection & severity scoring</p>
+            </div>
+          </div>
+
+          <!-- Image with bounding box overlay -->
+          <div class="mt-4 relative rounded-xl overflow-hidden bg-slate-900 h-44">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Pothole_in_road.jpg/640px-Pothole_in_road.jpg"
+                 alt="Road analysis" class="w-full h-full object-cover opacity-80" />
+
+            <!-- Bounding Box -->
+            <div id="bbox" class="bbox-overlay" style="left:22%; top:30%; width:40%; height:42%">
+              <div class="bbox-label">Pothole <span class="ml-1 opacity-70">94.2%</span></div>
+            </div>
+
+            <!-- Corner HUD decorations -->
+            <div class="hud-corner top-2 left-2"><div class="hud-corner-inner tl"></div></div>
+            <div class="hud-corner top-2 right-2"><div class="hud-corner-inner tr"></div></div>
+            <div class="hud-corner bottom-2 left-2"><div class="hud-corner-inner bl"></div></div>
+            <div class="hud-corner bottom-2 right-2"><div class="hud-corner-inner br"></div></div>
+
+            <!-- Scan line -->
+            <div class="scan-line"></div>
+
+            <!-- HUD overlay -->
+            <div class="absolute bottom-2 left-2 text-[9px] font-mono text-sirca-accent/80 space-y-0.5">
+              <div>FPS: 31.4 | Model: YOLOv8m-seg</div>
+              <div>IMG: 640×480 | CONF: 0.85</div>
+            </div>
+          </div>
+
+          <!-- Detection Data Table -->
+          <div class="mt-4 space-y-2">
+            <div class="vision-row">
+              <span class="vision-key"><i class="fa-solid fa-tag mr-1.5 text-sirca-accent/70"></i>Defect Class</span>
+              <span class="vision-val font-semibold text-slate-800">Pothole (Type III)</span>
+            </div>
+            <div class="vision-row">
+              <span class="vision-key"><i class="fa-solid fa-ruler-combined mr-1.5 text-sirca-accent/70"></i>Est. Diameter</span>
+              <span class="vision-val">~42 cm × 38 cm</span>
+            </div>
+            <div class="vision-row">
+              <span class="vision-key"><i class="fa-solid fa-gauge mr-1.5 text-sirca-accent/70"></i>Severity Index</span>
+              <span class="vision-val">
+                <span class="severity-badge HIGH">HIGH</span>
+              </span>
+            </div>
+            <div class="vision-row">
+              <span class="vision-key"><i class="fa-solid fa-percent mr-1.5 text-sirca-accent/70"></i>Confidence</span>
+              <span class="vision-val font-mono text-sm">94.2%</span>
+            </div>
+            <div class="vision-row">
+              <span class="vision-key"><i class="fa-solid fa-map-pin mr-1.5 text-sirca-accent/70"></i>Coordinates</span>
+              <span class="vision-val font-mono text-xs text-slate-600">3.1012° N, 101.6530° E</span>
+            </div>
+          </div>
+
+          <!-- Secondary defect detection strip -->
+          <div class="mt-4 p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <div class="text-[10px] uppercase tracking-widest text-slate-400 font-medium mb-2">Additional Detections</div>
+            <div class="flex gap-2 flex-wrap">
+              <span class="secondary-defect"><i class="fa-solid fa-minus mr-1"></i>Longitudinal Crack · 76%</span>
+              <span class="secondary-defect"><i class="fa-solid fa-diamond mr-1 text-[8px]"></i>Surface Deterioration · 61%</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════
+           COLUMN 2: AGENTIC CORE TERMINAL
+      ══════════════════════════════════════════ -->
+      <div class="flex flex-col gap-5">
+
+        <!-- Terminal Header Card -->
+        <div class="sirca-card p-0 overflow-hidden" id="card-terminal" style="background: #0A1120; border-color: #1E3A5F;">
+
+          <!-- Terminal Title Bar -->
+          <div class="terminal-title-bar">
+            <div class="flex items-center gap-1.5">
+              <span class="terminal-dot bg-selangor-red"></span>
+              <span class="terminal-dot bg-selangor-gold"></span>
+              <span class="terminal-dot bg-emerald-400"></span>
+            </div>
+            <div class="flex-1 text-center text-[11px] font-mono text-slate-500 tracking-wider">
+              Z.AI GLM — Agentic Reasoning Engine v2.4.1
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="terminal-replay" title="Replay" class="text-slate-600 hover:text-sirca-accent transition-colors text-xs">
+                <i class="fa-solid fa-rotate-right"></i>
+              </button>
+              <button id="terminal-clear" title="Clear" class="text-slate-600 hover:text-selangor-red transition-colors text-xs">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Terminal Banner -->
+          <div class="px-4 py-2 border-b border-sirca-termBorder">
+            <div class="font-mono text-[10px] text-sirca-accent/50 space-y-0.5">
+              <div>╔══════════════════════════════════════════════════════╗</div>
+              <div>║  SIRCA AUTONOMOUS GOVERNANCE ENGINE  ·  SESSION 0047 ║</div>
+              <div>╚══════════════════════════════════════════════════════╝</div>
+            </div>
+          </div>
+
+          <!-- Terminal Output -->
+          <div id="terminal-output" class="terminal-body font-mono text-xs text-slate-300 leading-relaxed h-[360px] overflow-y-auto p-4 terminal-scroll">
+            <!-- Lines injected by AgentTerminal.js -->
+          </div>
+
+          <!-- Terminal Input Row -->
+          <div class="terminal-input-row">
+            <span class="text-sirca-accent">sirca@agent</span>
+            <span class="text-slate-500">:</span>
+            <span class="text-selangor-gold">~</span>
+            <span class="text-slate-500">$</span>
+            <input id="terminal-cmd" type="text" placeholder="Enter command..." class="flex-1 bg-transparent outline-none text-slate-300 placeholder-slate-700 caret-sirca-accent ml-2 text-xs font-mono" />
+          </div>
+        </div>
+
+        <!-- Weather Context Card -->
+        <div class="sirca-card" id="card-weather">
+          <div class="card-header">
+            <div class="card-header-icon bg-sky-100 text-sky-500">
+              <i class="fa-solid fa-cloud-rain"></i>
+            </div>
+            <div>
+              <h2 class="card-title">Weather Context · Open-Meteo</h2>
+              <p class="card-sub">Petaling Jaya · Last 48h &amp; Forecast</p>
+            </div>
+            <div class="ml-auto text-xs text-slate-400 font-mono">3.1°N 101.6°E</div>
+          </div>
+          <div class="mt-4 grid grid-cols-3 gap-3">
+            <div class="weather-tile">
+              <i class="fa-solid fa-droplet text-sky-400 text-lg mb-1"></i>
+              <div class="font-display text-xl font-700 text-slate-800">18<span class="text-xs font-normal text-slate-400 ml-0.5">mm</span></div>
+              <div class="text-[10px] text-slate-500 uppercase tracking-wide">Yesterday Rain</div>
+            </div>
+            <div class="weather-tile">
+              <i class="fa-solid fa-temperature-half text-selangor-red text-lg mb-1"></i>
+              <div class="font-display text-xl font-700 text-slate-800">32<span class="text-xs font-normal text-slate-400 ml-0.5">°C</span></div>
+              <div class="text-[10px] text-slate-500 uppercase tracking-wide">Temp Now</div>
+            </div>
+            <div class="weather-tile bg-amber-50 border-amber-200">
+              <i class="fa-solid fa-triangle-exclamation text-amber-500 text-lg mb-1"></i>
+              <div class="font-display text-sm font-700 text-amber-700">WET</div>
+              <div class="text-[10px] text-amber-600 uppercase tracking-wide">Sub-base Flag</div>
+            </div>
+          </div>
+          <div class="mt-3 p-2.5 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2">
+            <i class="fa-solid fa-circle-exclamation text-amber-500 mt-0.5 shrink-0"></i>
+            <p class="text-xs text-amber-700 leading-relaxed">
+              <strong>Sub-base wet flag activated.</strong> Heavy rain recorded 18h prior. Priority score elevated by +15 pts. Recommend inspection within 24h.
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ══════════════════════════════════════════
+           COLUMN 3: TRACKER & WORK ORDER
+      ══════════════════════════════════════════ -->
+      <div class="flex flex-col gap-5">
+
+        <!-- Status Stepper Card -->
+        <div class="sirca-card" id="card-tracker">
+          <div class="card-header">
+            <div class="card-header-icon bg-sirca-teal/10 text-sirca-teal">
+              <i class="fa-solid fa-route"></i>
+            </div>
+            <div>
+              <h2 class="card-title">Work Order Tracker</h2>
+              <p class="card-sub">WO-SEL-2024-4821</p>
+            </div>
+          </div>
+
+          <!-- Vertical Stepper -->
+          <div class="mt-5 stepper" id="status-stepper">
+
+            <div class="step completed" data-step="0">
+              <div class="step-indicator"><i class="fa-solid fa-check text-[10px]"></i></div>
+              <div class="step-content">
+                <div class="step-title">Draft</div>
+                <div class="step-meta">Report received · 09:14 AM</div>
+              </div>
+            </div>
+
+            <div class="step completed" data-step="1">
+              <div class="step-indicator"><i class="fa-solid fa-check text-[10px]"></i></div>
+              <div class="step-content">
+                <div class="step-title">Submitted</div>
+                <div class="step-meta">Vision analysis complete</div>
+              </div>
+            </div>
+
+            <div class="step active" data-step="2">
+              <div class="step-indicator"><span class="step-pulse"></span></div>
+              <div class="step-content">
+                <div class="step-title">Pending Dispatch</div>
+                <div class="step-meta">Awaiting approval · <span class="text-selangor-gold">Action required</span></div>
+              </div>
+            </div>
+
+            <div class="step pending" data-step="3">
+              <div class="step-indicator"><span class="step-num">4</span></div>
+              <div class="step-content">
+                <div class="step-title">Scheduled</div>
+                <div class="step-meta">JKR crew assignment</div>
+              </div>
+            </div>
+
+            <div class="step pending" data-step="4">
+              <div class="step-indicator"><span class="step-num">5</span></div>
+              <div class="step-content">
+                <div class="step-title">In Progress</div>
+                <div class="step-meta">On-site repair underway</div>
+              </div>
+            </div>
+
+            <div class="step pending" data-step="5">
+              <div class="step-indicator"><span class="step-num">6</span></div>
+              <div class="step-content">
+                <div class="step-title">Completed</div>
+                <div class="step-meta">Post-repair verification</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Generated Work Order Card -->
+        <div class="sirca-card border-2 border-sirca-teal/30" id="card-workorder">
+
+          <!-- WO Header -->
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-[10px] uppercase tracking-widest text-slate-400 font-medium">Generated Work Order</span>
+                <span class="priority-badge HIGH">HIGH PRIORITY</span>
+              </div>
+              <h3 class="font-display text-xl font-700 text-slate-800">WO-SEL-2024-4821</h3>
+            </div>
+            <div class="shrink-0 flex flex-col items-end">
+              <div class="text-[10px] text-slate-400 uppercase tracking-wide">Dynamic Score</div>
+              <div class="font-display text-3xl font-700 text-selangor-red leading-tight">87<span class="text-base font-normal text-slate-400">/100</span></div>
+            </div>
+          </div>
+
+          <div class="mt-4 border-t border-slate-100 pt-4 space-y-2.5">
+
+            <div class="wo-row">
+              <span class="wo-key"><i class="fa-solid fa-building-columns mr-2 text-slate-400"></i>Authority</span>
+              <span class="wo-val font-semibold text-sirca-accent">MBPJ (Majlis Bandaraya PJ)</span>
+            </div>
+            <div class="wo-row">
+              <span class="wo-key"><i class="fa-solid fa-road mr-2 text-slate-400"></i>Road Type</span>
+              <span class="wo-val">Municipal Road (Jalan SS7/2)</span>
+            </div>
+            <div class="wo-row">
+              <span class="wo-key"><i class="fa-solid fa-location-dot mr-2 text-slate-400"></i>Location</span>
+              <span class="wo-val font-mono text-xs">3.1012°N, 101.6530°E</span>
+            </div>
+            <div class="wo-row">
+              <span class="wo-key"><i class="fa-solid fa-triangle-exclamation mr-2 text-slate-400"></i>Defect</span>
+              <span class="wo-val">Pothole Type III + Longitudinal Crack</span>
+            </div>
+            <div class="wo-row">
+              <span class="wo-key"><i class="fa-solid fa-school mr-2 text-slate-400"></i>Proximity</span>
+              <span class="wo-val text-selangor-red font-medium">80m from SK SS7 (School Zone)</span>
+            </div>
+            <div class="wo-row">
+              <span class="wo-key"><i class="fa-solid fa-cloud-showers-heavy mr-2 text-slate-400"></i>Weather</span>
+              <span class="wo-val text-amber-600 font-medium">Sub-base Wet · +15 pts</span>
+            </div>
+            <div class="wo-row">
+              <span class="wo-key"><i class="fa-solid fa-calendar-clock mr-2 text-slate-400"></i>SLA Target</span>
+              <span class="wo-val font-semibold text-slate-700">Within 48 hours</span>
+            </div>
+
+            <div class="wo-row items-start">
+              <span class="wo-key mt-0.5"><i class="fa-solid fa-envelope mr-2 text-slate-400"></i>Dispatch To</span>
+              <div>
+                <a href="mailto:aduan@mbpj.gov.my" class="wo-val text-sirca-accent hover:underline">aduan@mbpj.gov.my</a>
+                <div class="text-[10px] text-slate-400 mt-0.5">Selangor JKR District · Ref: MBPJ-ENF-2024</div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- AI Justification -->
+          <div class="mt-4 p-3 rounded-xl bg-sirca-navy/5 border border-sirca-mid/20">
+            <div class="text-[10px] uppercase tracking-widest text-slate-400 font-medium mb-1.5">
+              <i class="fa-solid fa-brain mr-1.5 text-selangor-gold/70"></i>Z.AI Justification
+            </div>
+            <p class="text-xs text-slate-600 leading-relaxed italic">
+              "Pothole near school zone with wet sub-base following 18mm rainfall. Structural failure risk elevated. Immediate patching recommended before morning school hours."
+            </p>
+          </div>
+
+          <!-- Dispatch Actions -->
+          <div class="mt-4 space-y-2.5">
+            <button id="dispatch-btn" class="dispatch-btn w-full">
+              <span id="dispatch-btn-content" class="flex items-center justify-center gap-2.5">
+                <i class="fa-solid fa-paper-plane"></i>
+                <span>Approve &amp; Dispatch Work Order</span>
+                <i class="fa-solid fa-arrow-right text-sm opacity-70"></i>
+              </span>
+            </button>
+            <div class="grid grid-cols-2 gap-2">
+              <button id="edit-btn" class="secondary-btn"><i class="fa-solid fa-pen mr-1.5"></i>Edit</button>
+              <button id="reject-btn" class="danger-btn"><i class="fa-solid fa-xmark mr-1.5"></i>Reject</button>
+            </div>
+          </div>
+
+          <!-- Dispatched Success State (hidden by default) -->
+          <div id="dispatch-success" class="hidden mt-4 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-center">
+            <i class="fa-solid fa-circle-check text-emerald-500 text-2xl mb-2"></i>
+            <div class="font-semibold text-emerald-700">Work Order Dispatched!</div>
+            <div class="text-xs text-emerald-600 mt-1">Email sent to <strong>aduan@mbpj.gov.my</strong></div>
+            <div class="text-xs text-slate-400 mt-1 font-mono">Ref: WO-SEL-2024-4821</div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ════════════════════════════════════════════════
+       TOAST NOTIFICATION CONTAINER
+  ════════════════════════════════════════════════ -->
+  <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2"></div>
+
+  <!-- Scripts (ES6 Modules) -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

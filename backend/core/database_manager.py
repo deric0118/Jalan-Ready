@@ -79,7 +79,7 @@ class DatabaseManager:
         :param lat: Latitude of the current detection.
         :param lon: Longitude of the current detection.
         :param threshold_deg: Search radius in degrees (0.0001 ~= 11 meters).
-        :return: Boolean indicating if the location has a history of failure.
+        :return: Dictionary containing details of previous failures for AI Root Cause Analysis.
         """
         try:
             cursor = self.conn.cursor()
@@ -89,21 +89,25 @@ class DatabaseManager:
             lon_min, lon_max = lon - threshold_deg, lon + threshold_deg
 
             query = '''
-                SELECT COUNT(*) FROM reports 
+                SELECT id, defect_type, updated_at FROM reports 
                 WHERE latitude BETWEEN ? AND ? 
                 AND longitude BETWEEN ? AND ?
                 AND workflow_state = 'RESOLVED'
             '''
 
             cursor.execute(query, (lat_min, lat_max, lon_min, lon_max))
-            count = cursor.fetchone()[0]
+            rows = cursor.fetchall()
 
-            # If count > 0, this is a recurring structural issue
-            return count > 0
+            # If rows exist, format them so the AI can read what failed previously
+            if rows:
+                history = [{"report_id": r[0], "past_defect_type": r[1], "resolved_date": r[2]} for r in rows]
+                return {"has_history": True, "message": "Previous resolved repairs found.", "history_details": history}
+            else:
+                return {"has_history": False, "message": "No previous repairs found.", "history_details": []}
 
         except Exception as e:
             print(f"⚠️ [SYSTEM ERROR] Tool D failure: {e}")
-            return False  # Fail-safe: assume not recurring if DB fails
+            return {"has_history": False, "error": str(e)}
 
     def get_nearby_active_reports(self, lat: float, lon: float, radius_meters=50) -> list:
         """

@@ -20,7 +20,7 @@ load_dotenv(override=True)
 class JalanReadyAgent:
     def __init__(self):
         """
-        Initializes the True Autonomous Orchestrator with 6 Tool Integrations.
+        Initializes the True Autonomous Orchestrator with 7 Tool Integrations.
         """
         api_key = os.getenv("ZAI_API_KEY")
         base_url = os.getenv("ZAI_BASE_URL")
@@ -44,7 +44,7 @@ class JalanReadyAgent:
         
         self.depot_location = "3.1073, 101.6067" # JKR Central Depot 
 
-        # 🚀 REGISTERING ALL 6 TOOLS FOR THE AI BRAIN
+        # 🚀 REGISTERING ALL 7 TOOLS FOR THE AI BRAIN
         self.tools = [
             {
                 "type": "function",
@@ -138,6 +138,21 @@ class JalanReadyAgent:
             {
                 "type": "function",
                 "function": {
+                    "name": "find_nearby_infrastructure",
+                    "description": "Scans for nearby schools or hospitals within 150m to dynamically adjust urgency.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "latitude": {"type": "number"},
+                            "longitude": {"type": "number"}
+                        },
+                        "required": ["latitude", "longitude"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
                     "name": "send_user_prompt",
                     "description": "Sends a message to the user asking for missing info (e.g., exact location).",
                     "parameters": {
@@ -161,7 +176,7 @@ class JalanReadyAgent:
         print("[SENSORY INPUT] Parsing dashcam image through YOLO...")
         vision_data = self.vision_service.analyze_image(image_path)
         
-        # Step 2: System Instructions (Your updated prompt)
+        # Step 2: System Instructions (Your updated prompt with Infrastructure & RCA)
         system_prompt = """
         You are the Central Reasoning Engine for Jalan-Ready, a fully autonomous road-defect management system for Selangor, Malaysia.
 
@@ -193,7 +208,8 @@ class JalanReadyAgent:
         - 'faded_markings' -> 20
 
         Modifiers:
-        - Historical recurrence (`check_historical_failure`): if true, +30, add "Structural Audit Required".
+        - Historical recurrence (`check_historical_failure`): If the tool returns a history of failures here, apply +30 urgency. You MUST conduct Root Cause Analysis (RCA) in your reasoning path (e.g., deduce why the previous patch failed). Add "Structural Audit Required" to the workflow state or reasoning.
+        - Critical Infrastructure (`find_nearby_infrastructure`): If a school or hospital is nearby, apply +20 urgency to protect vulnerable pedestrians and emergency routes.
         - Weather influence (`get_weather`): Heavy rain + sinkhole = 100. Rain + surface work = 'AWAITING_INFO'.
         - Traffic impact (`get_traffic`): High congestion + major arterial = +10 urgency.
 
@@ -231,7 +247,7 @@ class JalanReadyAgent:
 
     def _execute_agent_loop(self, messages: list) -> dict:
         """
-        The True Agentic Loop catching all 6 tools.
+        The True Agentic Loop catching all 7 tools.
         """
         if not self.glm_client:
             return {"error": "ZAI_API_KEY missing."}
@@ -283,12 +299,18 @@ class JalanReadyAgent:
                                 
                         elif function_name == "check_historical_failure":
                             try:
-                                # Assumes a method exists in database_manager.py
-                                has_history = self.db.check_historical_recurrence(arguments.get('latitude', 0), arguments.get('longitude', 0))
-                                result = {"has_history": has_history, "note": "Checked 100m radius."}
+                                # Now returns a detailed dictionary to enable RCA reasoning
+                                result = self.db.check_historical_recurrence(arguments.get('latitude', 0), arguments.get('longitude', 0))
                             except AttributeError:
                                 # Safe hackathon fallback if method isn't fully coded yet
                                 result = {"has_history": False, "note": "Mock DB Check: No recurrence found."}
+                                
+                        elif function_name == "find_nearby_infrastructure":
+                            try:
+                                # Triggers the new Google Maps Places search for schools/hospitals
+                                result = self.geocoding_service.find_nearby_infrastructure(arguments.get('latitude', 0), arguments.get('longitude', 0))
+                            except Exception as e:
+                                result = {"error": f"Infrastructure scan failed: {str(e)}"}
                                 
                         elif function_name == "send_user_prompt":
                             try:

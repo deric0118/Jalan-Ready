@@ -2,7 +2,7 @@ import os
 import googlemaps
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 class GeocodingService:
     def __init__(self):
@@ -41,5 +41,34 @@ class GeocodingService:
                 route = next((comp['long_name'] for comp in result[0]['address_components'] if 'route' in comp['types']), address)
                 return {"address": address, "road_name": route}
             return {"error": "Address not found"}
+        except Exception as e:
+            return {"error": str(e)}
+
+    def find_nearby_infrastructure(self, lat: float, lon: float, radius_meters: int = 150) -> dict:
+        """
+        Tool for the AI to scan for nearby critical infrastructure (schools, hospitals)
+        to dynamically adjust the urgency score.
+        """
+        if not self.gmaps:
+            return {"error": "Cannot search infrastructure without API key."}
+
+        try:
+            places_found = []
+            
+            # 1. Search for Schools
+            school_res = self.gmaps.places_nearby(location=(lat, lon), radius=radius_meters, type='school')
+            for place in school_res.get('results', []):
+                places_found.append({"name": place.get('name'), "type": "School"})
+                
+            # 2. Search for Hospitals
+            hospital_res = self.gmaps.places_nearby(location=(lat, lon), radius=radius_meters, type='hospital')
+            for place in hospital_res.get('results', []):
+                places_found.append({"name": place.get('name'), "type": "Hospital"})
+
+            if places_found:
+                return {"critical_infrastructure_nearby": True, "facilities": places_found}
+            else:
+                return {"critical_infrastructure_nearby": False, "facilities": []}
+
         except Exception as e:
             return {"error": str(e)}

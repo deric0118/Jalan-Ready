@@ -3,7 +3,7 @@
 > A smart infrastructure reporting system that combines YOLOv8 detection with Z.ai to seamlessly route validated pothole reports to the correct authorities (JKR/PBT).
 
 ## Project Documentation
-[Pitching Video](https://drive.google.com/drive/u/0/folders/182utHFD4SaSKKhOpj3jFbU7usVUgBFJT)
+[Pitching Information](https://drive.google.com/drive/u/0/folders/182utHFD4SaSKKhOpj3jFbU7usVUgBFJT)
 Comprehensive technical documentation is provided in the `docs/` directory:
 
 * **[Product Requirement Documentation (PRD)](./docs/Product_Requirement_Documentation.pdf)**: Detailed problem statement, user stories, and feature scope.

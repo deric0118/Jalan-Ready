@@ -1,0 +1,20 @@
+{
+  "name": "jalan-ready",
+  "version": "1.0.0",
+  "description": "Selangor Intelligent RoadCare Command Center",
+  "scripts": {
+    "serve": "http-server . -p 5500 -o login.html",
+    "dev": "http-server . -p 5500 -c-1",
+    "build": "echo 'Static site, no build needed'"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  },
+  "keywords": [
+    "road-management",
+    "traffic",
+    "selangor"
+  ],
+  "author": "",
+  "license": "MIT"
+}

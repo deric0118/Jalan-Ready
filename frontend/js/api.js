@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════
- *  api.js  —  SIRCa Backend Integration Layer ("The Doors")
+ *  api.js  —  Jalan-Ready Backend Integration Layer ("The Doors")
  *  Selangor Intelligent RoadCare
  *
  *  ┌─────────────────────────────────────────────────────────────┐
@@ -28,11 +28,16 @@
 /**
  * BASE_URL
  * --------
- * BACKEND DEV: Replace with your actual backend address.
- * Production example:  'https://api.sirca.selangor.gov.my/v1'
- * Development example: 'http://localhost:8000'
+ * Automatically detects environment:
+ * - Development (localhost): 'http://localhost:8000'
+ * - Production: 'https://api.jalan-ready.tk'
+ * 
+ * BACKEND DEV: Update the production URL when deploying to Railway
  */
-const BASE_URL = 'http://localhost:8000';
+const BASE_URL =
+  window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:8000'
+    : 'https://api.jalan-ready.tk'; // Replace with your actual production API URL
 
 /**
  * DEFAULT_HEADERS
@@ -163,7 +168,7 @@ export class SIRCaAPI {
 
     if (!response.ok) {
       const errBody = await response.text();
-      throw new Error(`[SIRCaAPI] HTTP ${response.status} on ${method} ${endpoint}: ${errBody}`);
+      throw new Error(`[Jalan-Ready] HTTP ${response.status} on ${method} ${endpoint}: ${errBody}`);
     }
 
     return response.json();

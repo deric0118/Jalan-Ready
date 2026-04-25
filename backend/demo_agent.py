@@ -1,101 +1,68 @@
+import json
 import sqlite3
-try:
-    from backend.core.orchestrator import JalanReadyAgent
-    from backend.core.database_manager import DatabaseManager
-except ModuleNotFoundError:
-    from core.orchestrator import JalanReadyAgent
-    from core.database_manager import DatabaseManager
-import time
-import os
+from backend.core.orchestrator import JalanReadyAgent
+from backend.core.database_manager import DatabaseManager
 
-DB_NAME = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "data", "jalan-ready.db")
-)
-
-def inject_historical_data(db_path=DB_NAME):
-    """Force a resolved state so Tool D can trigger during the demo."""
-    db = DatabaseManager(db_path)
-    cursor = db.conn.cursor()
-    # Insert a fake resolved report at the Scenario 3 coordinates
-    cursor.execute('''
-        INSERT INTO reports (timestamp, latitude, longitude, road_name, issue_type, workflow_state)
-        VALUES (datetime('now'), 3.125, 101.652, 'B15 Jalan Bangi', 'alligator_cracking', 'RESOLVED')
-    ''')
-    db.conn.commit()
-    db.conn.close()
-    print(f"🛠️ [SYSTEM] Historical data injected into {db_path} for Scenario 3.")
-    
 def run_demo():
-    # 1. Setup
-    inject_historical_data(DB_NAME) 
-    agent = JalanReadyAgent(db_name=DB_NAME)
+    agent = JalanReadyAgent()
+    db = DatabaseManager()
     
-    agent.USE_LIVE_AI = False
+    print("\n🚀 STARTING PURE AGENTIC DEMO\n" + "="*40)
     
-    scenarios = [
-        {
-            "desc": "Scenario 1: Standard Federal Road Pothole",
-            "data": {
-                "lat": 3.125, 
-                "lon": 101.652, 
-                "road_name": "FT01 Federal Highway", 
-                "yolo_label": "pothole", 
-                "confidence": 0.95}
-        },
-        {
-            "desc": "Scenario 2: Missing GPS (Triggers Tool C)",
-            "data": {"lat": 3.125, 
-                     "lon": 101.652, 
-                     "road_name": "Unknown", 
-                     "yolo_label": "pothole", 
-                     "confidence": 0.88}
-        },
-        {
-            "desc": "Scenario 3: Recurring Failure (Triggers Tool D)",
-            "data": {"lat": 3.125, 
-                     "lon": 101.652, 
-                     "road_name": "B15 Jalan Bangi", 
-                     "yolo_label": "alligator_cracking", 
-                     "confidence": 0.92}
-        },    
-        {
-            "desc": "Scenario 4: Autonomous Geocoding (Name only, no GPS)",
-            "data": {
-                "location_name": "Klang", 
-                "road_name": "Jalan Jambatan Kota", 
-                "yolo_label": "pothole", 
-                "confidence": 0.50}
-        },    
-    ]
+    image_path = r"C:\Users\njxnj\Downloads\Telegram Desktop\test_road.jpg"
+    location_input = "Federal Highway, Petaling Jaya, Selangor"
+    
+    # We hand it straight to the AI without a Python gatekeeper!
+    print("\n--- 🚀 Waking up Z.ai Agent to Orchestrate & Deduplicate ---")
+    result = agent.process_new_report(
+        image_path=image_path, 
+        location_input=location_input 
+    )
+    
+    print("\n--- 🧠 FINAL GLM JSON DECISION ---")
+    print(json.dumps(result, indent=2))
 
-    print("\n🚀 STARTING JALAN-READY BACKEND DEMO\n" + "="*40)
-    
-    for s in scenarios:
-        print(f"\n[RUNNING] {s['desc']}")
-        result = agent.process_new_report(s['data'])
-        print(f"[RESULT] {result}")
-        time.sleep(1.5)
-
-    # 2. Showcase Tool B (The Winning Feature)
-    print("\n" + "="*40)
-    print("📋 GENERATING CONTRACTOR DAILY PLAN (TOOL B)")
-    print("Target Authority: JKR Federal")
-    print("="*40)
-    
-    plan = agent.generate_daily_plan("JKR Federal")
-    
-    if not plan:
-        print("Empty Plan: No pending high-priority tasks found.")
+    # Act on the AI's Agentic Decision!
+    if result.get("is_duplicate"):
+        target_id = result.get("duplicate_of_id")
+        print(f"\n🛑 [AGENT REASONING] The AI successfully identified this as a duplicate of Report #{target_id}!")
+        if target_id:
+            db.increment_duplicate_count(target_id)
+        print(f"   ↳ Merged tickets and incremented the counter. No new ticket created.")
     else:
-        for i, stop in enumerate(plan, 1):
-            print(f"📍 STOP {i}: [Priority {stop['urgency']}]")
-            print(f"   ROAD  : {stop['road']}")
-            print(f"   ISSUE : {stop['issue'].upper()}")
-            print(f"   GPS   : {stop['lat']}, {stop['lon']}")
-            print(f"   NAV   : https://www.google.com/maps/search/?api=1&query={stop['lat']},{stop['lon']}")
-            print("-" * 30)
-
-    print("\n✅ MISSION COMPLETE: Route Optimized for efficiency and urgency.")
+        print(f"\n✅ [AGENT REASONING] The AI verified this is a brand new defect. Saving to database...")
+        
+        # --- FIXED DB INSERT LOGIC ---
+        conn = sqlite3.connect("data/jalan-ready.db")
+        cursor = conn.cursor()
+        
+        # Safety catch: Force the state to AWAITING_INFO if the AI hallucinates PENDING_WEATHER
+        wf_state = result.get('workflow_state', 'NEW')
+        if wf_state == "PENDING_WEATHER":
+            wf_state = "AWAITING_INFO"
+            
+        # We now properly save latitude and longitude!
+        cursor.execute("""
+            INSERT INTO reports (
+                latitude, longitude, road_name, defect_type, urgency_score, workflow_state, 
+                jurisdiction, reasoning_path, timestamp, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        """, (
+            result.get('latitude', 0.0),
+            result.get('longitude', 0.0),
+            result.get('road_name', 'Unknown'),
+            result.get('defect_type', 'Unknown'),
+            result.get('urgency_score', 0),
+            wf_state,
+            result.get('assigned_authority', 'Unknown'),
+            result.get('reasoning_path', '')
+        ))
+        
+        new_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        
+        print(f"   ↳ Successfully created Active Report #{new_id} in the database!")
 
 if __name__ == "__main__":
     run_demo()

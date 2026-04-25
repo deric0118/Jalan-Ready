@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from core.orchestrator import JalanReadyAgent # Import your Brain!
+from backend.core.orchestrator import JalanReadyAgent # Import your Brain!
 
 app = FastAPI()
 

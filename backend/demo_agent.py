@@ -10,7 +10,7 @@ def run_demo():
     print("\n🚀 STARTING PURE AGENTIC DEMO\n" + "="*40)
     
     image_path = r"C:\Users\njxnj\Downloads\Telegram Desktop\test_road.jpg"
-    location_input = "Jalan Kinrara 6c, Bandar Kinrara 6"
+    location_input = "Jalan PPK 3, Taman Kinrara"
     
     # We hand it straight to the AI without a Python gatekeeper!
     print("\n--- 🚀 Waking up Z.ai Agent to Orchestrate & Deduplicate ---")

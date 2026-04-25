@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contractor Portal - Jalan Ready</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #eef2f5; margin: 0; padding: 20px; color: #2c3e50; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        h2 { margin-top: 0; color: #2c3e50; }
+        .hidden { display: none !important; }
+        
+        .login-box { text-align: center; padding: 40px 20px; }
+        select { padding: 12px; width: 100%; max-width: 400px; margin: 15px 0; font-size: 16px; border-radius: 5px; border: 1px solid #bdc3c7; }
+        
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 14px; transition: 0.2s; color: white;}
+        .btn-primary { background-color: #3498db; }
+        .btn-primary:hover { background-color: #2980b9; }
+        .btn-done { background-color: #2ecc71; }
+        .btn-done:hover { background-color: #27ae60; }
+        .btn-logout { background-color: #e74c3c; float: right; padding: 8px 15px; font-size: 12px;}
+        
+        .tabs { display: flex; border-bottom: 2px solid #ecf0f1; margin-bottom: 20px; margin-top: 20px;}
+        .tab { padding: 10px 20px; cursor: pointer; font-weight: bold; color: #7f8c8d; }
+        .tab.active { border-bottom: 3px solid #3498db; color: #3498db; }
+        
+        .task-card { border: 1px solid #ecf0f1; padding: 15px; margin-bottom: 15px; border-radius: 8px; display: flex; align-items: center; background: #fafafa; gap: 15px;}
+        .task-checkbox { width: 22px; height: 22px; cursor: pointer;}
+        .task-details { flex-grow: 1; }
+        .task-details h4 { margin: 0 0 5px 0; font-size: 18px; text-transform: uppercase;}
+        .task-details p { margin: 3px 0; font-size: 14px; color: #7f8c8d; }
+        
+        .urgency-high { border-left: 6px solid #e74c3c; }
+        .urgency-med { border-left: 6px solid #f39c12; }
+        .urgency-low { border-left: 6px solid #f1c40f; }
+        .badge { background: #34495e; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;}
+        
+        /* New Bulk Action & Routing Boxes */
+        .bulk-action-bar { background: #fff; border-top: 2px solid #ecf0f1; padding: 20px 0; margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;}
+        
+        .routing-result-box { background: #e8f4f8; border: 2px solid #3498db; padding: 20px; border-radius: 8px; margin-top: 15px; }
+        .routing-result-box h3 { margin-top: 0; color: #2980b9; display: flex; align-items: center; gap: 10px;}
+        .ai-reasoning { font-style: italic; color: #34495e; margin-bottom: 15px; font-size: 15px; line-height: 1.5;}
+        
+        .route-link { color: #ffffff; text-decoration: none; font-size: 14px; font-weight: bold; background: #2c3e50; padding: 12px 20px; border-radius: 5px; display: inline-block; text-align: center;}
+        .route-link:hover { background: #1a252f; }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="login-screen">
+        <div class="login-box">
+            <h2>Jalan-Ready Contractor Portal</h2>
+            <p>Select your assigned jurisdiction to view active work orders.</p>
+            <select id="authority-select">
+                <option value="">Loading authorities...</option>
+            </select><br>
+            <button class="btn btn-primary" onclick="loginContractor()">Access Dashboard</button>
+        </div>
+    </div>
+
+    <div class="container hidden" id="dashboard-screen">
+        <button class="btn btn-logout" onclick="logoutContractor()">Logout</button>
+        <h2>Work Orders: <span id="logged-in-authority" style="color: #3498db;"></span></h2>
+        
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('unrepaired')" id="tab-unrepaired">Unrepaired / Active</div>
+            <div class="tab" onclick="switchTab('repaired')" id="tab-repaired">Successfully Repaired</div>
+        </div>
+
+        <div id="unrepaired-list-container">
+            <div id="unrepaired-list"><p>Loading active tasks...</p></div>
+            
+            <div class="bulk-action-bar hidden" id="bulk-action-bar">
+                <button class="btn btn-primary" onclick="generateMultiRoute()" id="btn-generate">📍 AI Route Optimization</button>
+                <button class="btn btn-done" onclick="resolveSelectedTasks()" id="btn-done">✅ Mark Selected as Done</button>
+            </div>
+
+            <div class="routing-result-box hidden" id="routing-result-box">
+                <h3>🧠 Z.ai Logistics Route Planned</h3>
+                <p class="ai-reasoning" id="ai-reasoning-text">Calculating optimal route...</p>
+                <a href="#" target="_blank" class="route-link" id="maps-link-btn">🗺️ Open Multi-Stop GPS Route</a>
+            </div>
+        </div>
+
+        <div id="repaired-list" class="hidden">
+            <p>Loading historical tasks...</p>
+        </div>
+    </div>
+
+    <script src="js/contractor.js"></script>
+</body>
+</html>

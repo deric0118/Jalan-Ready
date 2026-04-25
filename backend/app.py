@@ -6,6 +6,7 @@ import secrets
 import sqlite3
 import tempfile
 import shutil
+import uuid  # <-- Added missing import
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -13,34 +14,7 @@ from fastapi import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import UploadFile, File, Form
 from pydantic import BaseModel
-
-WORK_ORDER_DB_PATH = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "data", "work_orders.db")
-)
-
-def _init_work_order_db():
-    conn = sqlite3.connect(WORK_ORDER_DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS work_orders (
-            id TEXT PRIMARY KEY,
-            defect_type TEXT,
-            priority TEXT,
-            authority TEXT,
-            confidence REAL,
-            reasoning TEXT,
-            location TEXT,
-            lat REAL,
-            lon REAL,
-            image_path TEXT,
-            status TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    conn.commit()
-    conn.close()
-
-_init_work_order_db()
+from fastapi import BackgroundTasks
 
 # Lazy load the orchestrator - only needed for report analysis, not for auth
 try:
@@ -239,55 +213,127 @@ async def analyze_report(
     lat: float = Form(None),
     lon: float = Form(None),
 ):
-    """
-    Receives a road damage image and metadata, processes it through the orchestrator,
-    and returns analysis results including priority, assigned authority, and work order details.
-    """
     if not agent:
-        raise HTTPException(
-            status_code=503,
-            detail="Backend orchestrator not available. Check server logs."
-        )
-    
+        raise HTTPException(status_code=503, detail="Backend orchestrator not available.")
+
     temp_dir = None
     try:
-        # Create temporary directory to store the image
+        # Save uploaded image
         temp_dir = tempfile.mkdtemp(prefix="jalan_ready_")
         image_path = Path(temp_dir) / image.filename
-        
-        # Save the uploaded image to temporary location
         with open(image_path, "wb") as f:
             content = await image.read()
             f.write(content)
-        
+
         # Build location string
         location_input = location if location else "Unknown location"
         if note:
             location_input += f" ({note})"
-        
-        print(f"[API] Image saved to {image_path}")
-        print(f"[API] Processing report: location={location_input}, lat={lat}, lon={lon}")
-        
-        # Call the orchestrator to analyze the image
+
         result = agent.process_new_report(str(image_path), location_input)
-        
-        # Return the result in the expected format
+
+        if "error" in result:
+            detail = result["error"]
+            status_code = 503 if "Z.ai" in detail or "API key" in detail or "authentication failed" in detail.lower() else 500
+            raise HTTPException(status_code=status_code, detail=detail)
+
+        # Extract fields (adjust keys based on your orchestrator's actual output)
+        work_order_id = result.get("work_order_id", str(uuid.uuid4()))
+        defect_type = result.get("defect_type", "Pothole")
+        confidence = result.get("confidence", 0.95)
+        priority = result.get("priority", "P2")
+        authority = result.get("assigned_authority", "MBPJ")
+        reasoning = result.get("reasoning", "")
+        location_desc = result.get("location_description", location_input)
+        urgency_score = result.get("urgency_score", 50)  # Default 50 if not provided
+        lat_val = lat if lat is not None else result.get("latitude", 0.0)
+        lon_val = lon if lon is not None else result.get("longitude", 0.0)
+
+        # Store using DatabaseManager
+        agent.db.create_work_order(
+            id=work_order_id,
+            defect_type=defect_type,
+            priority=priority,
+            authority=authority,
+            confidence=confidence,
+            reasoning=reasoning,
+            location=location_desc,
+            lat=lat_val,
+            lon=lon_val,
+            image_path=str(image_path),
+            status="NEW"   # or "pending_approval"
+        )
+
+        # Return frontend-compatible response
         return {
             "success": True,
-            "work_order": result
+            "work_order": {
+                "id": work_order_id,
+                "urgency_score": urgency_score,
+                "detections": [{"class": defect_type, "confidence": confidence}],
+                "decision": {
+                    "assigned_to": authority,
+                    "priority": priority,
+                    "reasoning": reasoning,
+                    "sla_hours": result.get("sla_hours", 48)
+                }
+            }
         }
-    
+
     except Exception as e:
-        print(f"[ERROR] Analysis failed: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Analysis failed: {str(e)}"
-        )
-    
+        print(f"[ERROR] /api/analyze: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
-        # Clean up temporary directory
         if temp_dir and os.path.exists(temp_dir):
             shutil.rmtree(temp_dir, ignore_errors=True)
 
+@app.post("/api/dispatch")
+async def dispatch_work_order(payload: dict, background_tasks: BackgroundTasks):
+    wo_id = payload.get("work_order_id")
+    if not wo_id:
+        raise HTTPException(status_code=400, detail="Missing work_order_id")
+
+    wo = agent.db.get_work_order(wo_id)
+    if not wo:
+        raise HTTPException(status_code=404, detail="Work order not found")
+
+    # Allow only if status is 'NEW' or 'pending_approval'
+    if wo["workflow_state"] not in ["NEW", "pending_approval"]:
+        return {"success": False, "message": f"Work order already {wo['workflow_state']}"}
+
+    # Prepare email data
+    email_data = {
+        "yolo_label": wo["defect_type"],
+        "road_name": wo["road_name"],
+        "confidence": wo["confidence"],
+        "weather": "Clear",   # optionally fetch live weather
+        "lat": wo["latitude"],
+        "lon": wo["longitude"]
+    }
+
+    # Get jurisdiction contact using your existing method
+    # Note: you may need to pass district/road_type – 
+    # for now, derive from location or set default
+    jurisdiction = agent.db.lookup_jurisdiction_contact(
+        district="Petaling",   # example; you can extract from wo["road_name"]
+        road_type="primary"
+    )
+    recipient = jurisdiction.get("safe_dispatch_email", "default@example.com")
+    authority_name = jurisdiction.get("authority", wo["jurisdiction"])
+
+    # Send email in background
+    background_tasks.add_task(
+        agent.email_service.send_report,
+        recipient_email=recipient,
+        authority=authority_name,
+        urgency=wo["urgency_score"],
+        data=email_data,
+        image_path=wo["image_path"]
+    )
+
+    # Update status
+    agent.db.update_work_order_status(wo_id, "REPORTED")   # or "DISPATCHED"
+
+    return {"success": True, "message": f"Work order dispatched to {authority_name}"}
 
 # Run this file using: uvicorn app:app --reload

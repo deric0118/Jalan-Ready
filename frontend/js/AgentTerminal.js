@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════
- *  AgentTerminal.js  —  SIRCa Agentic Core Log Renderer
+ *  AgentTerminal.js  —  Jalan-Ready Agentic Core Log Renderer
  *  Selangor Intelligent RoadCare · Z.AI GLM Reasoning Terminal
  *
  *  This class manages the dark-mode terminal display in Column 2.

@@ -198,3 +198,35 @@ class DatabaseManager:
             "safe_dispatch_email": safe_email,
             "note": f"Using alias {safe_email} for safe testing instead of {raw_email}"
         }
+    def create_work_order(self, id: str, defect_type: str, priority: str, authority: str,
+                     confidence: float, reasoning: str, location: str, lat: float,
+                     lon: float, image_path: str, status: str = "pending_approval") -> None:
+        """Insert a new work order into the reports table."""
+        # Map priority to urgency_score (P1=100, P2=50, P3=20)
+        urgency = 100 if priority == "P1" else 50 if priority == "P2" else 20
+
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            INSERT INTO reports (
+                id, defect_type, urgency_score, jurisdiction, confidence,
+                reasoning_path, road_name, latitude, longitude, image_path, workflow_state
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+            id, defect_type, urgency, authority, confidence,
+            reasoning, location, lat, lon, image_path, status
+        ))
+        self.conn.commit()
+
+    def get_work_order(self, work_order_id: str) -> dict | None:
+        """Retrieve a work order by its ID."""
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM reports WHERE id = ?", (work_order_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+    def update_work_order_status(self, work_order_id: str, new_status: str) -> None:
+        """Update the workflow_state of a work order."""
+        cursor = self.conn.cursor()
+        cursor.execute("UPDATE reports SET workflow_state = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                   (new_status, work_order_id))
+        self.conn.commit()

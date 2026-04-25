@@ -166,6 +166,9 @@
 
     // Submit report to backend
     submitBtn.addEventListener('click', async () => {
+      // Detect backend URL
+    const BACKEND_URL = 'http://127.0.0.1:8000';
+
       if (!selectedFile) {
         showToast('error', 'No image', 'Please upload a photo of the road defect.');
         return;
@@ -187,7 +190,7 @@
 
       try {
         // 🔁 Replace with your actual backend endpoint (e.g., /api/analyze)
-        const response = await fetch('/api/analyze', { method: 'POST', body: formData });
+        const response = await fetch(`${BACKEND_URL}/api/analyze`, { method: 'POST', body: formData });
         if (!response.ok) throw new Error(`Server error: ${response.status}`);
         const data = await response.json();
         if (data.success) {
@@ -239,7 +242,7 @@
       dispatchBtn.disabled = true;
       dispatchBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Dispatching...';
       try {
-        const resp = await fetch('/api/dispatch', {
+        const resp = await fetch(`${BACKEND_URL}/api/dispatch`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ work_order_id: currentWorkOrderId })

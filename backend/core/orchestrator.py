@@ -136,7 +136,7 @@ class JalanReadyAgent:
     def _execute_agent_loop(self, messages: list) -> dict:
         """The True Agentic Loop catching all tools."""
         if not self.glm_client:
-            return {"error": "ZAI_API_KEY missing."}
+            return {"error": "Z.ai authentication failed: ZAI_API_KEY is missing or invalid. Please check your .env file."}
 
         max_loops = 12 
         loop_count = 0
@@ -255,7 +255,10 @@ class JalanReadyAgent:
                         return {"error": "Agent failed to format JSON", "raw_ai_response": result_text}
 
             except Exception as e:
-                print(f"⚠️ Z.AI Request Failed: {e}")
-                return {"error": str(e)}
+                error_text = str(e)
+                print(f"⚠️ Z.AI Request Failed: {error_text}")
+                if "401" in error_text or "令牌已过期" in error_text or "invalid token" in error_text.lower() or "invalid api key" in error_text.lower():
+                    return {"error": "Z.ai authentication failed: invalid or expired API key. Update ZAI_API_KEY in .env."}
+                return {"error": error_text}
         
         return {"error": "Agent exceeded max tool-calling loops."}

@@ -151,9 +151,7 @@
     }
 
     // Detect backend URL
-    const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? 'http://127.0.0.1:8000'
-      : 'https://api.jalan-ready.tk'; // Replace with your production API URL
+    const BACKEND_URL = 'http://127.0.0.1:8000';
 
     // LOGIN
     document.getElementById('doLogin').addEventListener('click', async () => {

@@ -4,17 +4,17 @@ from dotenv import load_dotenv
 
 from zhipuai import ZhipuAI
 
-# Explicit backend imports
-from backend.services.vision_service import VisionService
-from backend.services.traffic_service import TrafficService
-from backend.services.weather_service import WeatherService
-from backend.services.geocoding_service import GeocodingService
-from backend.core.database_manager import DatabaseManager
-from backend.core.state_manager import StateManager 
-from backend.services.email_service import EmailService
+# Explicit backend imports (using relative imports)
+from ..services.vision_service import VisionService
+from ..services.traffic_service import TrafficService
+from ..services.weather_service import WeatherService
+from ..services.geocoding_service import GeocodingService
+from .database_manager import DatabaseManager
+from .state_manager import StateManager 
+from ..services.email_service import EmailService
 
 # Import the engine tool for user communication
-from backend.core.engine_tools import tool_c_user_communicator 
+from .engine_tools import tool_c_user_communicator 
 
 load_dotenv(override=True)
 
@@ -96,6 +96,9 @@ class JalanReadyAgent:
         """
         The True Agentic Loop catching all tools.
         """
+        if tools is None:
+            tools = self.tools
+            
         if not self.glm_client:
             return {"error": "ZAI_API_KEY missing."}
 
@@ -249,6 +252,37 @@ class JalanReadyAgent:
                 return {"error": str(e)}
         
         return {"error": "Agent exceeded max tool-calling loops."}
+
+    def process_new_report(self, image_path: str, location_input: str, auto_dispatch: bool = False) -> dict:
+        """
+        auto_dispatch=False → agent analyses but will NOT call dispatch_work_order.
+        """
+        print(f"\n--- 🚀 Agent Activated: New Report at [{location_input}] ---")
+        self.current_image_path = image_path
+
+        vision_data = self.vision_service.analyze_image(image_path)
+        self.current_vision_confidence = vision_data.get('confidence', 0.95) if isinstance(vision_data, dict) else 0.95
+
+        prompt_path = os.path.join(self.config_dir, "system_prompt.md")
+        with open(prompt_path, "r", encoding="utf-8") as file:
+            system_prompt = file.read()
+
+        user_message = (
+            f"Citizen report location input: '{location_input}'. Vision sensor detects: {json.dumps(vision_data)}. "
+            f"Depot is at {self.depot_location}. Do NOT dispatch any email now – just analyse and return a JSON decision."
+        )
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message}
+        ]
+
+        # Prepare tools: remove dispatch_work_order if auto_dispatch is False
+        tools_for_run = self.tools.copy()
+        if not auto_dispatch:
+            tools_for_run = [t for t in tools_for_run if t.get("function", {}).get("name") != "dispatch_work_order"]
+
+        return self._execute_agent_loop(messages, tools=tools_for_run)
 
 # --- TEST BLOCK ---
 if __name__ == "__main__":

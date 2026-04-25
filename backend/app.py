@@ -4,11 +4,43 @@ import hmac
 import os
 import secrets
 import sqlite3
+import tempfile
+import shutil
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import UploadFile, File, Form
 from pydantic import BaseModel
+
+WORK_ORDER_DB_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "data", "work_orders.db")
+)
+
+def _init_work_order_db():
+    conn = sqlite3.connect(WORK_ORDER_DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS work_orders (
+            id TEXT PRIMARY KEY,
+            defect_type TEXT,
+            priority TEXT,
+            authority TEXT,
+            confidence REAL,
+            reasoning TEXT,
+            location TEXT,
+            lat REAL,
+            lon REAL,
+            image_path TEXT,
+            status TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+_init_work_order_db()
 
 # Lazy load the orchestrator - only needed for report analysis, not for auth
 try:
@@ -197,5 +229,65 @@ def login(payload: LoginRequest):
             "postcode": user["postcode"],
         },
     }
+
+
+@app.post("/api/analyze")
+async def analyze_report(
+    image: UploadFile = File(...),
+    location: str = Form(""),
+    note: str = Form(""),
+    lat: float = Form(None),
+    lon: float = Form(None),
+):
+    """
+    Receives a road damage image and metadata, processes it through the orchestrator,
+    and returns analysis results including priority, assigned authority, and work order details.
+    """
+    if not agent:
+        raise HTTPException(
+            status_code=503,
+            detail="Backend orchestrator not available. Check server logs."
+        )
+    
+    temp_dir = None
+    try:
+        # Create temporary directory to store the image
+        temp_dir = tempfile.mkdtemp(prefix="jalan_ready_")
+        image_path = Path(temp_dir) / image.filename
+        
+        # Save the uploaded image to temporary location
+        with open(image_path, "wb") as f:
+            content = await image.read()
+            f.write(content)
+        
+        # Build location string
+        location_input = location if location else "Unknown location"
+        if note:
+            location_input += f" ({note})"
+        
+        print(f"[API] Image saved to {image_path}")
+        print(f"[API] Processing report: location={location_input}, lat={lat}, lon={lon}")
+        
+        # Call the orchestrator to analyze the image
+        result = agent.process_new_report(str(image_path), location_input)
+        
+        # Return the result in the expected format
+        return {
+            "success": True,
+            "work_order": result
+        }
+    
+    except Exception as e:
+        print(f"[ERROR] Analysis failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Analysis failed: {str(e)}"
+        )
+    
+    finally:
+        # Clean up temporary directory
+        if temp_dir and os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
 
 # Run this file using: uvicorn app:app --reload

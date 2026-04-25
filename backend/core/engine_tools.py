@@ -51,6 +51,10 @@ def tool_b_route_optimizer(tasks, start_lat, start_lon):
 
     return optimized_route
 
-def tool_c_user_communicator(report_id, message_type):
-    print(f"📡 [COMM-LINK] Report ID {report_id}: Action required -> {message_type}")
-    return True
+def tool_c_user_communicator(report_id="TEMP_ID", message_type="", message=""):
+    """
+    Tool C: User Communicator. 
+    The AI uses this to ask the citizen for missing details (like a better address).
+    """
+    print(f"📡 [COMM-LINK] AI Message to Citizen: '{message}'")
+    return {"status": "Message sent to user UI", "message_content": message}

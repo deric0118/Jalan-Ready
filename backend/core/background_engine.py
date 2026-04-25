@@ -1,81 +1,126 @@
-import sqlite3
 import time
+import sqlite3
+import json
 from datetime import datetime, timedelta
-try:
-    from backend.core.database_manager import DatabaseManager
-    from backend.core.engine_tools import tool_c_user_communicator
-except ModuleNotFoundError:
-    from core.database_manager import DatabaseManager
-    from core.engine_tools import tool_c_user_communicator
+import os
+import sys
 
-class BackgroundGovernanceEngine:
-    def __init__(self, interval_seconds=10):
-        self.db_manager = DatabaseManager()
-        self.interval = interval_seconds
-        self.is_running = True
+# Import the existing agent to reuse its tool-calling brain!
+from backend.core.orchestrator import JalanReadyAgent
+
+DB_PATH = "data/jalan-ready.db"
+
+class BackgroundEngine:
+    def __init__(self, demo_mode=True):
+        """
+        Initializes the Background Cron Engine.
+        demo_mode=True compresses 24 hours into 15 seconds for hackathon judging.
+        """
+        self.demo_mode = demo_mode
+        self.delay_threshold = timedelta(seconds=15) if demo_mode else timedelta(hours=24)
+        self.agent = JalanReadyAgent()
+        
+        print(f"🕒 [BACKGROUND ENGINE] Booting up...")
+        if self.demo_mode:
+            print(f"⚠️ [DEMO MODE ACTIVE] 24-Hour delays compressed to 15 seconds.")
+
+    def _get_db_connection(self):
+        # Ensure the data directory exists
+        os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+        return sqlite3.connect(DB_PATH)
 
     def run(self):
-        """Main loop that executes autonomous governance checks."""
-        print(f"🚀 [GOVERNANCE ENGINE] Started. Monitoring reports every {self.interval}s...")
+        """The infinite loop that acts as the system's heartbeat."""
+        print("🕒 [BACKGROUND ENGINE] Monitoring database for delayed AWAITING_INFO reports...")
         
-        while self.is_running:
-            try:
-                self.process_escalations()
-                self.process_nudges()
-                self.process_weather_delays()
-            except Exception as e:
-                print(f"⚠️ [SYSTEM ERROR] Background Engine Loop failed: {e}")
+        while True:
+            self._sweep_database()
+            # Print a subtle dot so you know the loop is alive and not stuck
+            sys.stdout.write(".")
+            sys.stdout.flush()
+            # Sleep for 5 seconds before checking the database again
+            time.sleep(5)
+
+    def _sweep_database(self):
+        """Hunts for tickets delayed by weather that are past their waiting period."""
+        try:
+            conn = self._get_db_connection()
+            cursor = conn.cursor()
             
-            time.sleep(self.interval)
+            # 1. Use 'AWAITING_INFO' to respect your DB schema
+            # 2. Use 'updated_at' to match your schema
+            cursor.execute("SELECT id, road_name, defect_type, updated_at FROM reports WHERE workflow_state = 'AWAITING_INFO'")
+            delayed_reports = cursor.fetchall()
 
-    def process_escalations(self):
-        """Logic: Reports older than 48 hours move from REPORTED to ESCALATED."""
-        cursor = self.db_manager.conn.cursor()
-        # For the demo, we use 1 minute instead of 48 hours to show it to the judges
-        threshold_time = (datetime.now() - timedelta(minutes=1)).strftime('%Y-%m-%d %H:%M:%S')
-        
-        cursor.execute('''
-            UPDATE reports 
-            SET workflow_state = 'ESCALATED', 
-                urgency_score = MIN(urgency_score + 10, 100),
-                reasoning_path = reasoning_path || ' [AUTO-ESCALATION: SLA Breach > 48h]'
-            WHERE workflow_state = 'REPORTED' 
-            AND timestamp < ?
-        ''', (threshold_time,))
-        
-        if cursor.rowcount > 0:
-            print(f"⚖️ [ESCALATION] {cursor.rowcount} reports escalated due to response delay.")
-        self.db_manager.conn.commit()
+            for report in delayed_reports:
+                report_id, road_name, defect_type, updated_at_str = report
+                
+                try:
+                    last_updated = datetime.fromisoformat(updated_at_str)
+                except (ValueError, TypeError):
+                    last_updated = datetime.now() - timedelta(days=2) 
 
-    def process_nudges(self):
-        """Logic: Reports in AWAITING_INFO get a nudge message via Tool C."""
-        cursor = self.db_manager.conn.cursor()
-        cursor.execute("SELECT id FROM reports WHERE workflow_state = 'AWAITING_INFO'")
-        pending = cursor.fetchall()
-        
-        for report in pending:
-            report_id = report[0]
-            # Trigger Tool C
-            tool_c_user_communicator(report_id, "nudge")
+                time_since_delay = datetime.now() - last_updated
+                if time_since_delay >= self.delay_threshold:
+                    print(f"\n⏰ [ALARM] Buffer period over for Report #{report_id} at {road_name}.")
+                    self._re_evaluate_weather(report_id, road_name, defect_type, conn)
+
+            conn.close()
             
-        self.db_manager.conn.commit()
+        except sqlite3.OperationalError as e:
+            # Fails gracefully if the table doesn't exist yet during early testing
+            print(f"\n⚠️ [DB WARNING] Could not read database: {e}. Retrying in 5s...")
+        except Exception as e:
+            print(f"\n⚠️ [SYSTEM ERROR] {e}")
 
-    def process_weather_delays(self):
-        """Logic: If weather is 'Raining', move painting/marking tasks to 'DELAYED'."""
-        cursor = self.db_manager.conn.cursor()
-        # This simulates the 'Adaptive Execution' based on environmental variables
-        cursor.execute('''
-            UPDATE reports 
-            SET workflow_state = 'DELAYED_WEATHER',
-                reasoning_path = reasoning_path || ' [DELAY: Outdoor work suspended due to Rain]'
-            WHERE issue_type = 'faded_markings' 
-            AND workflow_state = 'REPORTED'
-        ''')
-        # Note: In a real system, you'd check a Weather API here.
-        if cursor.rowcount > 0:
-            print(f"🌧️ [WEATHER ADAPTATION] {cursor.rowcount} marking tasks delayed due to rain.")
-        self.db_manager.conn.commit()
+    def _re_evaluate_weather(self, report_id, road_name, defect_type, db_connection):
+        """Wakes up the Z.ai GLM to specifically re-check the weather and update the schedule."""
+        print(f"🧠 [AGENT WAKEUP] Handing Report #{report_id} back to Z.ai for weather re-evaluation...")
+        
+        # We write a highly specific sub-prompt just for this task, strictly respecting DB constraints
+        system_prompt = """
+        You are the Jalan-Ready Scheduling Re-evaluation Agent.
+        Your task is to check if a previously weather-delayed road repair can now be scheduled.
+        
+        You MUST use the `get_weather` or `geocode_location` tools to check the current weather for the provided location.
+        
+        Rules:
+        1. If the rain has stopped and conditions are dry, set workflow_state to 'REPORTED' and output a specific scheduled_time (e.g., 'Today at 2:00 PM').
+        2. If it is still raining or rain is highly probable, keep workflow_state as 'AWAITING_INFO' and set scheduled_time to 'Delayed another 24 Hours'.
+        
+        Output ONLY a JSON object with: 'workflow_state', 'scheduled_time', and 'reasoning_path'.
+        """
+        
+        user_message = f"Please re-evaluate Report #{report_id}. Location: {road_name}. Defect: {defect_type}."
+        
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message}
+        ]
+        
+        # Reuse the existing agent loop from orchestrator.py!
+        decision = self.agent._execute_agent_loop(messages)
+        
+        if "error" not in decision:
+            print(f"✅ [AGENT DECISION] {decision.get('reasoning_path')}")
+            
+            # Update the database with the new status
+            new_state = decision.get('workflow_state', 'AWAITING_INFO')
+            new_time = datetime.now().isoformat()
+            
+            # FIXED: Uses updated_at to match your database schema
+            cursor = db_connection.cursor()
+            cursor.execute("""
+                UPDATE reports 
+                SET workflow_state = ?, updated_at = ? 
+                WHERE id = ?
+            """, (new_state, new_time, report_id))
+            db_connection.commit()
+            
+            print(f"🔄 [STATE UPDATE] Report #{report_id} changed to [{new_state}].\n")
+        else:
+            print(f"⚠️ [AGENT ERROR] Failed to get AI decision: {decision['error']}\n")
 
 if __name__ == "__main__":
-    engine = BackgroundGovernanceEngine(interval_seconds=15)
+    engine = BackgroundEngine(demo_mode=True)
     engine.run()

@@ -24,6 +24,7 @@ class DatabaseManager:
                 latitude REAL,
                 longitude REAL,
                 road_name TEXT,
+                defect_type TEXT,
                 issue_type TEXT,
                 confidence REAL,
                 urgency_score INTEGER,
@@ -38,6 +39,7 @@ class DatabaseManager:
                 )) DEFAULT 'NEW',
                 jurisdiction TEXT,
                 is_recurring BOOLEAN DEFAULT 0,
+                report_count INTEGER DEFAULT 1,
                 reasoning_path TEXT,
                 image_path TEXT
             )
@@ -101,3 +103,42 @@ class DatabaseManager:
         except Exception as e:
             print(f"⚠️ [SYSTEM ERROR] Tool D failure: {e}")
             return False  # Fail-safe: assume not recurring if DB fails
+
+    def get_nearby_active_reports(self, lat: float, lon: float, radius_meters=50) -> list:
+        """
+        Tool for the AI to fetch nearby tickets and decide if they are duplicates.
+        """
+        offset = radius_meters / 111000.0 
+        
+        # FIXED: Explicit direct connection
+        conn = sqlite3.connect("data/jalan-ready.db")
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT id, road_name, defect_type, workflow_state, timestamp 
+            FROM reports 
+            WHERE workflow_state NOT IN ('RESOLVED', 'REJECTED')
+            AND latitude BETWEEN ? AND ?
+            AND longitude BETWEEN ? AND ?
+        """, (lat - offset, lat + offset, lon - offset, lon + offset))
+        
+        # Format as a clean dictionary for the AI to read
+        columns = [column[0] for column in cursor.description]
+        results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        conn.close()
+        
+        return results
+
+    def increment_duplicate_count(self, report_id: str):
+        """Adds +1 to the report count of an existing ticket."""
+        
+        # FIXED: Explicit direct connection
+        conn = sqlite3.connect("data/jalan-ready.db")
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE reports 
+            SET report_count = report_count + 1, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """, (report_id,))
+        conn.commit()
+        conn.close()

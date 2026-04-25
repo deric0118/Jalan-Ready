@@ -65,15 +65,12 @@ class JalanReadyAgent:
         The Entry Point. Loads prompt dynamically from backend/config/system_prompt.md
         """
         print(f"\n--- 🚀 Agent Activated: New Report at [{location_input}] ---")
-        self.current_image_path = image_path # Store for the email tool to access
+        self.current_image_path = image_path 
 
-        # Step 1: The "Eyes"
         print("[SENSORY INPUT] Parsing dashcam image through YOLO...")
         vision_data = self.vision_service.analyze_image(image_path)
-        # Capture AI confidence if available, else default to 0.95
         self.current_vision_confidence = vision_data.get('confidence', 0.95) if isinstance(vision_data, dict) else 0.95
         
-        # Step 2: Load System Instructions Dynamically
         prompt_path = os.path.join(self.config_dir, "system_prompt.md")
         try:
             with open(prompt_path, "r", encoding="utf-8") as file:
@@ -82,7 +79,6 @@ class JalanReadyAgent:
             print(f"⚠️ [SYSTEM ERROR] Could not load system_prompt.md. Error: {e}")
             return {"error": "Prompt configuration missing."}
         
-        # Step 3: Trigger the Agent
         user_message = f"Citizen report location input: '{location_input}'. Vision sensor detects: {json.dumps(vision_data)}. Please take over orchestration. Depot is at {self.depot_location}."
 
         messages = [
@@ -92,17 +88,57 @@ class JalanReadyAgent:
 
         return self._execute_agent_loop(messages)
 
-    def _execute_agent_loop(self, messages: list) -> dict:
+    def plan_logistics_route(self, depot_gps: str, tasks: list) -> dict:
         """
-        The True Agentic Loop catching all tools.
+        The Second Brain: Acts as a Logistics Dispatcher to sequence multi-stop routes.
         """
-        if tools is None:
-            tools = self.tools
+        if not self.glm_client:
+            return {"error": "ZAI API Key missing.", "optimized_order": [t['id'] for t in tasks], "reasoning": "API Offline. Default order."}
+
+        system_prompt = """
+        You are the Chief Logistics AI for Jalan-Ready.
+        Your job is to sequence a multi-stop repair route for a construction team.
+        You will be provided with the starting Depot GPS, and a list of tasks with their GPS coordinates and urgency scores.
+        
+        Your Goal: Determine the most logical sequence to visit these locations, prioritizing clustered locations to minimize travel time, while also factoring in high urgency.
+        
+        Return ONLY a JSON object with this exact structure:
+        {
+          "optimized_order": [list of task IDs in the optimal sequence],
+          "reasoning": "A brief explanation of why you chose this route (e.g., 'I routed you to task X first because it is closest to the depot, then grouped task Y and Z to avoid backtracking')."
+        }
+        """
+
+        user_message = f"Depot Coordinates: {depot_gps}. Please sequence these tasks: {json.dumps(tasks)}"
+
+        try:
+            response = self.glm_client.chat.completions.create(
+                model="ilmu-glm-5.1",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message}
+                ],
+                temperature=0.2
+            )
             
+            result_text = response.choices[0].message.content or ""
+            import re
+            json_match = re.search(r'\{.*\}', result_text, re.DOTALL)
+            
+            if json_match:
+                return json.loads(json_match.group(0))
+            else:
+                return {"optimized_order": [t['id'] for t in tasks], "reasoning": "Failed to generate optimized route. Falling back to default order."}
+                
+        except Exception as e:
+            return {"optimized_order": [t['id'] for t in tasks], "reasoning": f"AI Routing Error: {str(e)}"}
+
+    def _execute_agent_loop(self, messages: list) -> dict:
+        """The True Agentic Loop catching all tools."""
         if not self.glm_client:
             return {"error": "ZAI_API_KEY missing."}
 
-        max_loops = 12 # Increased limit to accommodate jurisdiction lookup and dispatch
+        max_loops = 12 
         loop_count = 0
 
         while loop_count < max_loops:
@@ -125,45 +161,37 @@ class JalanReadyAgent:
                         
                         print(f"🤖 [AGENT THOUGHT] Using tool: {function_name}()")
                         
-                        # --- TOOL EXECUTION ROUTER ---
                         result = {}
                         
                         if function_name == "get_weather":
                             result = self.weather_service.analyze_conditions(arguments.get('latitude', 0), arguments.get('longitude', 0))
-                            
                         elif function_name == "get_traffic":
                             result = self.traffic_service.analyze_traffic_constraints(arguments.get('origin', ''), arguments.get('destination', ''))
-                            
                         elif function_name == "geocode_location":
                             try:
                                 result = self.geocoding_service.geocode(arguments.get('location_name', ''))
                             except Exception as e:
                                 result = {"error": f"Failed to geocode: {str(e)}"}
-                                
                         elif function_name == "reverse_geocode":
                             try:
                                 result = self.geocoding_service.reverse_geocode(arguments.get('latitude', 0), arguments.get('longitude', 0))
                             except Exception as e:
                                 result = {"error": "Reverse geocode failed", "road_prefix": "Unknown"}
-                                
                         elif function_name == "check_historical_failure":
                             try:
                                 result = self.db.check_historical_recurrence(arguments.get('latitude', 0), arguments.get('longitude', 0))
                             except AttributeError:
                                 result = {"has_history": False, "note": "Mock DB Check: No recurrence found."}
-                                
                         elif function_name == "find_nearby_infrastructure":
                             try:
                                 result = self.geocoding_service.find_nearby_infrastructure(arguments.get('latitude', 0), arguments.get('longitude', 0))
                             except Exception as e:
                                 result = {"error": f"Infrastructure scan failed: {str(e)}"}
-                                
                         elif function_name == "send_user_prompt":
                             try:
                                 result = tool_c_user_communicator(message=arguments.get('message', ''))
                             except Exception:
                                 result = {"status": "success", "action": "Prompted user", "content": arguments.get('message')}
-                        
                         elif function_name == "check_nearby_reports":
                             try:
                                 result = self.db.get_nearby_active_reports(arguments.get('latitude', 0), arguments.get('longitude', 0))
@@ -171,8 +199,6 @@ class JalanReadyAgent:
                                     result = {"message": "No nearby active reports found."}
                             except AttributeError:
                                 result = {"message": "Database error checking reports."}
-
-                        # --- NEW: CSV JURISDICTION LOOKUP ---
                         elif function_name == "lookup_jurisdiction_contact":
                             try:
                                 result = self.db.lookup_jurisdiction_contact(
@@ -181,13 +207,8 @@ class JalanReadyAgent:
                                 )
                             except Exception as e:
                                 result = {"error": f"Lookup failed: {str(e)}"}
-                        
-                        # --- EMAIL DISPATCH TOOL LOGIC ---
                         elif function_name == "dispatch_work_order":
                             try:
-                                print(f"📨 [AGENT ACTION] Preparing to dispatch email to {arguments.get('assigned_authority')}...")
-                                
-                                # This is where we map the AI's standard variables to the email template
                                 email_data = {
                                     "yolo_label": arguments.get("defect_type", "Unknown"), 
                                     "road_name": arguments.get("road_name", "Unknown"),
@@ -196,7 +217,6 @@ class JalanReadyAgent:
                                     "lat": arguments.get("latitude", 0.0),
                                     "lon": arguments.get("longitude", 0.0)
                                 }
-                                
                                 success = self.email_service.send_report(
                                     recipient_email=arguments.get("dispatch_email"),
                                     authority=arguments.get("assigned_authority"),
@@ -204,47 +224,34 @@ class JalanReadyAgent:
                                     data=email_data,
                                     image_path=self.current_image_path
                                 )
-                                
                                 if success:
-                                    result = {"status": "success", "message": f"Email work order sent to {arguments.get('dispatch_email')}"}
+                                    result = {"status": "success", "message": f"Email sent to {arguments.get('dispatch_email')}"}
                                 else:
                                     result = {"status": "failed", "message": "SMTP Email failed to send."}
                             except Exception as e:
                                 result = {"error": f"Email dispatch error: {str(e)}"}
-                                
                         else:
                             result = {"error": "Unknown tool"}
 
                         print(f"✅ [TOOL DATA] {function_name} returned data.")
-                        
-                        # Feed the result back to Z.ai
                         messages.append({
                             "role": "tool",
                             "tool_call_id": tool_call.id,
                             "content": json.dumps(result)
                         })
-                        
-                    continue # Restart loop to let AI process the new tool data
+                    continue 
 
                 else:
                     print("🤖 [AGENT THOUGHT] Orchestration complete. Generating final output.")
-                    # Safely grab the text, defaulting to empty string if None
                     result_text = response_message.content or "" 
-                    
-                    # 🚀 ROBUST JSON EXTRACTION
                     import re
-                    # Hunt for anything that looks like { ... }
                     json_match = re.search(r'\{.*\}', result_text, re.DOTALL)
-                    
                     if json_match:
                         try:
-                            # Parse only the matched JSON part
                             return json.loads(json_match.group(0))
                         except Exception as e:
-                            print(f"⚠️ [JSON PARSE ERROR] Python couldn't read the JSON: {e}")
                             return {"error": "Malformed JSON from Agent", "raw_ai_response": result_text}
                     else:
-                        print("⚠️ [NO JSON FOUND] Agent replied with plain text instead of JSON.")
                         return {"error": "Agent failed to format JSON", "raw_ai_response": result_text}
 
             except Exception as e:
@@ -252,44 +259,3 @@ class JalanReadyAgent:
                 return {"error": str(e)}
         
         return {"error": "Agent exceeded max tool-calling loops."}
-
-    def process_new_report(self, image_path: str, location_input: str, auto_dispatch: bool = False) -> dict:
-        """
-        auto_dispatch=False → agent analyses but will NOT call dispatch_work_order.
-        """
-        print(f"\n--- 🚀 Agent Activated: New Report at [{location_input}] ---")
-        self.current_image_path = image_path
-
-        vision_data = self.vision_service.analyze_image(image_path)
-        self.current_vision_confidence = vision_data.get('confidence', 0.95) if isinstance(vision_data, dict) else 0.95
-
-        prompt_path = os.path.join(self.config_dir, "system_prompt.md")
-        with open(prompt_path, "r", encoding="utf-8") as file:
-            system_prompt = file.read()
-
-        user_message = (
-            f"Citizen report location input: '{location_input}'. Vision sensor detects: {json.dumps(vision_data)}. "
-            f"Depot is at {self.depot_location}. Do NOT dispatch any email now – just analyse and return a JSON decision."
-        )
-
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message}
-        ]
-
-        # Prepare tools: remove dispatch_work_order if auto_dispatch is False
-        tools_for_run = self.tools.copy()
-        if not auto_dispatch:
-            tools_for_run = [t for t in tools_for_run if t.get("function", {}).get("name") != "dispatch_work_order"]
-
-        return self._execute_agent_loop(messages, tools=tools_for_run)
-
-# --- TEST BLOCK ---
-if __name__ == "__main__":
-    orchestrator = JalanReadyAgent()
-    final_decision = orchestrator.process_new_report(
-        image_path="C:\\Users\\njxnj\\Downloads\\Telegram Desktop\\test_road.jpg",
-        location_input="Jalan SS2/24, Petaling Jaya" 
-    )
-    print("\n--- 🧠 FINAL JSON ---")
-    print(json.dumps(final_decision, indent=2))

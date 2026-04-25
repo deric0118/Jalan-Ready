@@ -1,4 +1,7 @@
 {
   "buildCommand": "echo 'Building static site...'",
-  "outputDirectory": "nonexistent"
+  "outputDirectory": "nonexistent",
+  "git": {
+    "deploymentEnabled": false
+  }
 }

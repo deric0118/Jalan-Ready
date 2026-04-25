@@ -56,9 +56,10 @@ app = FastAPI()
 # Allow your HTML/JS frontend to talk to this Python server
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In a real app, put your frontend URL here
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods (POST, GET, etc.)
+    allow_headers=["*"],  # Allows all headers
 )
 
 # Initialize your Agent (only if available)
@@ -239,10 +240,6 @@ async def analyze_report(
     lat: float = Form(None),
     lon: float = Form(None),
 ):
-    """
-    Receives a road damage image and metadata, processes it through the orchestrator,
-    and returns analysis results including priority, assigned authority, and work order details.
-    """
     if not agent:
         raise HTTPException(
             status_code=503,
@@ -251,27 +248,67 @@ async def analyze_report(
     
     temp_dir = None
     try:
-        # Create temporary directory to store the image
+        # 1. Save uploaded image
         temp_dir = tempfile.mkdtemp(prefix="jalan_ready_")
         image_path = Path(temp_dir) / image.filename
         
-        # Save the uploaded image to temporary location
         with open(image_path, "wb") as f:
             content = await image.read()
             f.write(content)
         
-        # Build location string
         location_input = location if location else "Unknown location"
         if note:
             location_input += f" ({note})"
         
-        print(f"[API] Image saved to {image_path}")
-        print(f"[API] Processing report: location={location_input}, lat={lat}, lon={lon}")
-        
-        # Call the orchestrator to analyze the image
+        # 2. Call the AI Orchestrator
         result = agent.process_new_report(str(image_path), location_input)
         
-        # Return the result in the expected format
+        # 3. --- NEW: SAVE TO JALAN-READY.DB ---
+        db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "jalan-ready.db"))
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # Check if the AI marked it as a duplicate
+        if result.get("is_duplicate"):
+            target_id = result.get("duplicate_of_id")
+            if target_id:
+                cursor.execute("""
+                    UPDATE reports 
+                    SET report_count = report_count + 1, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                """, (target_id,))
+                conn.commit()
+                result['id'] = target_id # Send the old ID back to the frontend
+        else:
+            # It's a new report, create a new row!
+            wf_state = result.get('workflow_state', 'NEW')
+            if wf_state == "PENDING_WEATHER":
+                wf_state = "AWAITING_INFO"
+                
+            cursor.execute("""
+                INSERT INTO reports (
+                    latitude, longitude, road_name, defect_type, urgency_score, workflow_state, 
+                    jurisdiction, reasoning_path, timestamp, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            """, (
+                result.get('latitude', 0.0),
+                result.get('longitude', 0.0),
+                result.get('road_name', 'Unknown'),
+                result.get('defect_type', 'Unknown'),
+                result.get('urgency_score', 0),
+                wf_state,
+                result.get('assigned_authority', 'Unknown'),
+                result.get('reasoning_path', '')
+            ))
+            
+            # Grab the newly generated database ID and attach it to the result
+            result['id'] = cursor.lastrowid
+            conn.commit()
+            
+        conn.close()
+        # --------------------------------------
+
+        # 4. Return to Frontend
         return {
             "success": True,
             "work_order": result
@@ -285,9 +322,23 @@ async def analyze_report(
         )
     
     finally:
-        # Clean up temporary directory
         if temp_dir and os.path.exists(temp_dir):
             shutil.rmtree(temp_dir, ignore_errors=True)
 
+@app.get("/api/report/{report_id}")
+def get_report_status(report_id: int):
+    """Allows the frontend to check the real-time status of a work order."""
+    db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "jalan-ready.db"))
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT workflow_state FROM reports WHERE id = ?", (report_id,))
+    row = cursor.fetchone()
+    conn.close()
+    
+    if row:
+        return {"workflow_state": row["workflow_state"]}
+    raise HTTPException(status_code=404, detail="Report not found")
 
 # Run this file using: uvicorn app:app --reload

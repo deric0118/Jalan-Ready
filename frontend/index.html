@@ -4,10 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
   <title>Jalan-Ready – Smart Road Care</title>
-  <!-- Tailwind + Font Awesome -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <!-- Google Font -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Inter', sans-serif; background: #f4f6fa; }
@@ -18,18 +16,19 @@
     .priority-high { background: #dc2626; color: white; }
     .priority-med { background: #f97316; color: white; }
     .priority-low { background: #10b981; color: white; }
-    .step { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0; border-left: 2px solid #e2e8f0; margin-left: 1rem; padding-left: 1.5rem; position: relative; }
+    .step { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0; border-left: 2px solid #e2e8f0; margin-left: 1rem; padding-left: 1.5rem; position: relative; transition: all 0.3s ease; }
     .step.active { border-left-color: #0ea5e9; }
-    .step .dot { width: 2rem; height: 2rem; background: white; border: 2px solid #cbd5e1; border-radius: 2rem; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: bold; color: #64748b; }
+    .step .dot { width: 2rem; height: 2rem; background: white; border: 2px solid #cbd5e1; border-radius: 2rem; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: bold; color: #64748b; transition: all 0.3s ease;}
     .step.active .dot { border-color: #0ea5e9; background: #eef2ff; color: #0ea5e9; }
     .step.completed .dot { background: #0ea5e9; border-color: #0ea5e9; color: white; }
     .btn-primary { background: #0ea5e9; transition: all 0.2s; }
     .btn-primary:hover { background: #0284c7; transform: translateY(-1px); }
+    @keyframes fade-up { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+    .animate-fade-up { animation: fade-up 0.2s ease-out; }
   </style>
 </head>
 <body class="p-4 md:p-6 max-w-4xl mx-auto">
 
-  <!-- Header -->
   <div class="text-center mb-8">
     <div class="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-4 py-1 shadow-sm mb-3">
       <i class="fa-solid fa-road text-selangor-red"></i>
@@ -39,14 +38,12 @@
     <p class="text-slate-500 mt-2">Report road damage – AI analyses, assigns, and schedules repairs.</p>
   </div>
 
-  <!-- Main Report Card -->
   <div class="card p-6 md:p-8 mb-6">
     <div class="flex items-center gap-3 mb-6">
       <div class="bg-selangor-red/10 p-2 rounded-full"><i class="fa-solid fa-camera text-selangor-red text-xl"></i></div>
       <h2 class="text-2xl font-bold text-slate-800">Report a defect</h2>
     </div>
 
-    <!-- Image upload zone -->
     <div id="dropzone" class="dropzone rounded-2xl p-8 text-center cursor-pointer transition">
       <i class="fa-solid fa-cloud-upload-alt text-4xl text-slate-400 mb-2"></i>
       <p class="text-slate-600">Tap to upload a photo of the road damage</p>
@@ -54,7 +51,6 @@
       <input type="file" id="imageInput" accept="image/*" class="hidden">
     </div>
 
-    <!-- Location & optional note -->
     <div class="mt-6 space-y-4">
       <div>
         <label class="block text-sm font-medium text-slate-700 mb-1">Location (optional)</label>
@@ -66,13 +62,11 @@
       </div>
     </div>
 
-    <!-- Submit button -->
     <button id="submitBtn" class="btn-primary w-full mt-6 py-3 rounded-xl text-white font-semibold shadow-md flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
       <i class="fa-solid fa-paper-plane"></i> Submit report
     </button>
   </div>
 
-  <!-- Result Section (hidden initially) -->
   <div id="resultSection" class="card p-6 md:p-8 hidden">
     <div class="flex items-center justify-between flex-wrap gap-3 mb-4">
       <div class="flex items-center gap-2">
@@ -83,11 +77,10 @@
     </div>
 
     <div class="grid md:grid-cols-2 gap-6">
-      <!-- Left: detection & details -->
       <div class="space-y-4">
         <div>
           <div class="text-sm text-slate-500">Detected defect</div>
-          <div id="defectClass" class="text-2xl font-bold text-slate-800">Pothole (Type III)</div>
+          <div id="defectClass" class="text-2xl font-bold text-slate-800">Pothole</div>
           <div class="text-xs text-slate-400 mt-1">Confidence <span id="confidence">94%</span></div>
         </div>
         <div class="border-t border-slate-100 pt-3">
@@ -95,56 +88,48 @@
           <div class="flex justify-between text-sm mt-2"><span class="text-slate-500">Work order ID</span><span id="workOrderId" class="font-mono text-sm">WO-SEL-2024-4821</span></div>
           <div class="flex justify-between text-sm mt-2"><span class="text-slate-500">Target SLA</span><span id="sla" class="font-medium text-selangor-red">Within 48 hours</span></div>
         </div>
-        <!-- AI reasoning (collapsible) -->
         <div class="mt-4">
           <button id="toggleReasoning" class="text-xs text-slate-400 hover:text-selangor-red flex items-center gap-1"><i class="fa-solid fa-chevron-right"></i> Show AI reasoning</button>
           <div id="reasoningPanel" class="hidden mt-2 p-3 bg-slate-50 rounded-xl text-xs text-slate-600 font-mono leading-relaxed"></div>
         </div>
       </div>
 
-      <!-- Right: simple stepper -->
       <div>
         <div class="text-sm font-medium text-slate-500 mb-2">Repair progress</div>
         <div class="space-y-1">
-          <div class="step completed" data-step="0"><div class="dot"><i class="fa-solid fa-check text-[10px]"></i></div><div><div class="font-medium">Report received</div><div class="text-xs text-slate-400">Image & location captured</div></div></div>
-          <div class="step completed" data-step="1"><div class="dot"><i class="fa-solid fa-check text-[10px]"></i></div><div><div class="font-medium">AI analysis</div><div class="text-xs text-slate-400">Defect classified & prioritised</div></div></div>
-          <div class="step active" data-step="2"><div class="dot">3</div><div><div class="font-medium">Pending dispatch</div><div class="text-xs text-slate-400">Awaiting supervisor approval</div></div></div>
-          <div class="step" data-step="3"><div class="dot">4</div><div><div class="font-medium">Scheduled</div><div class="text-xs text-slate-400">JKR crew assigned</div></div></div>
-          <div class="step" data-step="4"><div class="dot">5</div><div><div class="font-medium">Repair in progress</div><div class="text-xs text-slate-400">On‑site work</div></div></div>
-          <div class="step" data-step="5"><div class="dot">6</div><div><div class="font-medium">Completed</div><div class="text-xs text-slate-400">Verification pending</div></div></div>
+          <div class="step completed" id="step0"><div class="dot"><i class="fa-solid fa-check text-[10px]"></i></div><div><div class="font-medium">Report received</div><div class="text-xs text-slate-400">Image & location captured</div></div></div>
+          
+          <div class="step completed" id="step1"><div class="dot"><i class="fa-solid fa-check text-[10px]"></i></div><div><div class="font-medium">AI analysis & Dispatched</div><div class="text-xs text-slate-400">Defect verified & sent to authority</div></div></div>
+          
+          <div class="step active" id="step2"><div class="dot">3</div><div><div class="font-medium">Repair in progress</div><div class="text-xs text-slate-400">Awaiting contractor action</div></div></div>
+          
+          <div class="step" id="step3"><div class="dot">4</div><div><div class="font-medium">Completed</div><div class="text-xs text-slate-400">Repair verified and closed</div></div></div>
         </div>
       </div>
     </div>
-
-    <!-- Dispatch button -->
-    <div class="mt-6 pt-4 border-t border-slate-100 flex justify-end">
-      <button id="dispatchBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-xl shadow-sm transition flex items-center gap-2">
-        <i class="fa-solid fa-check-circle"></i> Approve & dispatch
-      </button>
-    </div>
-    <div id="dispatchSuccess" class="hidden mt-3 p-3 bg-emerald-50 rounded-xl text-emerald-700 text-sm text-center">✅ Work order dispatched to authority</div>
   </div>
 
-  <!-- Toast container -->
   <div id="toastContainer" class="fixed bottom-5 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2"></div>
 
   <script>
-    // DOM elements
+    const token = localStorage.getItem('auth_token');
+    if (!token) { window.location.href = '../login.html'; }
+
+    const BACKEND_URL = "http://127.0.0.1:8000";
+
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('imageInput');
     const submitBtn = document.getElementById('submitBtn');
     const locationInput = document.getElementById('locationInput');
     const noteInput = document.getElementById('noteInput');
     const resultSection = document.getElementById('resultSection');
-    const dispatchBtn = document.getElementById('dispatchBtn');
-    const dispatchSuccess = document.getElementById('dispatchSuccess');
     const toggleReasoning = document.getElementById('toggleReasoning');
     const reasoningPanel = document.getElementById('reasoningPanel');
 
     let selectedFile = null;
     let currentWorkOrderId = null;
+    let pollingInterval = null; // Used to check status automatically
 
-    // File upload interactions
     dropzone.addEventListener('click', () => fileInput.click());
     dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag-over'); });
     dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
@@ -164,20 +149,19 @@
       dropzone.classList.add('border-selangor-red/30', 'bg-selangor-red/5');
     }
 
-    // Submit report to backend
     submitBtn.addEventListener('click', async () => {
       if (!selectedFile) {
         showToast('error', 'No image', 'Please upload a photo of the road defect.');
         return;
       }
       submitBtn.disabled = true;
-      submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Analysing...';
+      submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Analyzing with Z.ai...';
 
       const formData = new FormData();
       formData.append('image', selectedFile);
       formData.append('location', locationInput.value || '');
       formData.append('note', noteInput.value || '');
-      // Optional GPS
+      
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(pos => {
           formData.append('lat', pos.coords.latitude);
@@ -186,18 +170,20 @@
       }
 
       try {
-        // 🔁 Replace with your actual backend endpoint (e.g., /api/analyze)
-        const response = await fetch('/api/analyze', { method: 'POST', body: formData });
+        const response = await fetch(`${BACKEND_URL}/api/analyze`, { method: 'POST', body: formData });
         if (!response.ok) throw new Error(`Server error: ${response.status}`);
+        
         const data = await response.json();
-        if (data.success) {
+        if (data.success && data.work_order) {
           updateUI(data.work_order);
-          showToast('success', 'Analysis complete', 'Work order generated based on AI reasoning.');
+          showToast('success', 'Analysis complete', 'Z.ai has sent the work order to the authority.');
+          
+          // Start polling the backend to see if the contractor marks it as done
+          startPolling(data.work_order.id);
         } else {
-          throw new Error(data.error || 'Unknown error');
+          throw new Error(data.error || 'Unknown error from AI');
         }
       } catch (err) {
-        console.error(err);
         showToast('error', 'Analysis failed', err.message);
       } finally {
         submitBtn.disabled = false;
@@ -207,57 +193,78 @@
 
     function updateUI(wo) {
       resultSection.classList.remove('hidden');
-      const defect = wo.detections?.[0]?.class || 'Pothole';
-      document.getElementById('defectClass').innerText = defect;
-      document.getElementById('confidence').innerText = (wo.detections?.[0]?.confidence * 100).toFixed(0) + '%' || '94%';
-      document.getElementById('authority').innerText = wo.decision?.assigned_to || 'MBPJ';
-      document.getElementById('workOrderId').innerText = wo.id;
-      document.getElementById('sla').innerText = wo.decision?.priority === 'P1' ? 'Within 48 hours' : 'Within 7 days';
-      const priority = wo.decision?.priority || 'HIGH';
+      
+      document.getElementById('defectClass').innerText = wo.defect_type ? wo.defect_type.toUpperCase() : 'UNKNOWN DEFECT';
+      document.getElementById('confidence').innerText = "Verified by Z.ai";
+      document.getElementById('authority').innerText = wo.assigned_authority || 'Pending Routing';
+      document.getElementById('workOrderId').innerText = "#" + wo.id;
+      document.getElementById('sla').innerText = wo.scheduled_time || 'Awaiting Info';
+      
+      const urgency = wo.urgency_score || 50;
+      let priority = 'LOW';
+      let badgeClass = 'priority-low';
+      
+      if (urgency >= 80) { priority = 'CRITICAL'; badgeClass = 'priority-high'; } 
+      else if (urgency >= 50) { priority = 'HIGH'; badgeClass = 'priority-med'; }
+      
       const badge = document.getElementById('priorityBadge');
-      badge.innerText = `PRIORITY: ${priority}`;
-      badge.className = `result-chip px-4 py-1 text-sm font-semibold ${priority === 'P1' ? 'priority-high' : (priority === 'P2' ? 'priority-med' : 'priority-low')}`;
-      currentWorkOrderId = wo.id;
+      badge.innerText = `PRIORITY: ${priority} (${urgency}/100)`;
+      badge.className = `result-chip px-4 py-1 text-sm font-semibold ${badgeClass}`;
 
-      const reasoning = wo.decision?.reasoning || 'No detailed reasoning provided.';
-      reasoningPanel.innerText = reasoning;
+      document.getElementById('reasoningPanel').innerText = wo.reasoning_path || 'No reasoning provided.';
+      
+      // Update Stepper visually based on DB state
+      updateStepperVisuals(wo.workflow_state);
+    }
 
-      // Reset stepper
-      const steps = document.querySelectorAll('.step');
-      steps.forEach(step => step.classList.remove('active', 'completed'));
-      if (steps[0]) { steps[0].classList.add('completed'); steps[0].querySelector('.dot').innerHTML = '<i class="fa-solid fa-check text-[10px]"></i>'; }
-      if (steps[1]) { steps[1].classList.add('completed'); steps[1].querySelector('.dot').innerHTML = '<i class="fa-solid fa-check text-[10px]"></i>'; }
-      if (steps[2]) { steps[2].classList.add('active'); steps[2].querySelector('.dot').innerHTML = '3'; }
-      for (let i = 3; i < steps.length; i++) {
-        steps[i].classList.remove('completed', 'active');
-        steps[i].querySelector('.dot').innerHTML = (i+1).toString();
+    // New function to handle the 4-step UI logic
+    function updateStepperVisuals(workflow_state) {
+      const step2 = document.getElementById('step2');
+      const step3 = document.getElementById('step3');
+      
+      // Reset steps 2 and 3
+      step2.className = 'step'; step3.className = 'step';
+      step2.querySelector('.dot').innerHTML = '3';
+      step3.querySelector('.dot').innerHTML = '4';
+
+      if (workflow_state === 'RESOLVED' || workflow_state === 'COMPLETED') {
+          // Fully done!
+          step2.classList.add('completed');
+          step2.querySelector('.dot').innerHTML = '<i class="fa-solid fa-check text-[10px]"></i>';
+          step3.classList.add('completed');
+          step3.querySelector('.dot').innerHTML = '<i class="fa-solid fa-check text-[10px]"></i>';
+      } else if (workflow_state === 'IN_PROGRESS') {
+          // Contractor is actively routing to it
+          step2.classList.add('active');
+          step2.querySelector('.dot').innerHTML = '<i class="fa-solid fa-spinner fa-spin text-[10px]"></i>';
+      } else {
+          // It's still new/reported
+          step2.classList.add('active');
       }
     }
 
-    dispatchBtn.addEventListener('click', async () => {
-      if (!currentWorkOrderId) return;
-      dispatchBtn.disabled = true;
-      dispatchBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Dispatching...';
-      try {
-        const resp = await fetch('/api/dispatch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ work_order_id: currentWorkOrderId })
-        });
-        if (!resp.ok) throw new Error('Dispatch failed');
-        const result = await resp.json();
-        dispatchSuccess.classList.remove('hidden');
-        showToast('success', 'Dispatched', `Work order sent to ${result.dispatched_to}`);
-        const steps = document.querySelectorAll('.step');
-        if (steps[2]) { steps[2].classList.remove('active'); steps[2].classList.add('completed'); steps[2].querySelector('.dot').innerHTML = '<i class="fa-solid fa-check text-[10px]"></i>'; }
-        if (steps[3]) { steps[3].classList.add('active'); steps[3].querySelector('.dot').innerHTML = '4'; }
-      } catch (err) {
-        showToast('error', 'Dispatch error', err.message);
-      } finally {
-        dispatchBtn.disabled = false;
-        dispatchBtn.innerHTML = '<i class="fa-solid fa-check-circle"></i> Approve & dispatch';
-      }
-    });
+    // Auto-polling system to check for contractor updates
+    function startPolling(reportId) {
+        if (pollingInterval) clearInterval(pollingInterval);
+        
+        pollingInterval = setInterval(async () => {
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/report/${reportId}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    updateStepperVisuals(data.workflow_state);
+                    
+                    // Stop polling if it's finally resolved
+                    if (data.workflow_state === 'RESOLVED') {
+                        clearInterval(pollingInterval);
+                        showToast('success', 'Repair Completed!', 'The contractor has successfully fixed the road defect.');
+                    }
+                }
+            } catch (e) {
+                console.log("Polling error:", e);
+            }
+        }, 3000); // Checks the database every 3 seconds
+    }
 
     toggleReasoning.addEventListener('click', () => {
       const isHidden = reasoningPanel.classList.toggle('hidden');
@@ -271,22 +278,8 @@
       const icon = type === 'success' ? 'fa-check-circle text-emerald-500' : (type === 'error' ? 'fa-exclamation-circle text-red-500' : 'fa-info-circle text-selangor-red');
       toast.innerHTML = `<i class="fa-solid ${icon} text-lg"></i><div><div class="font-semibold">${title}</div><div class="text-slate-500 text-xs">${message}</div></div>`;
       container.appendChild(toast);
-      setTimeout(() => toast.remove(), 4000);
+      setTimeout(() => toast.remove(), 5000);
     }
   </script>
-  <style>
-    @keyframes fade-up { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-    .animate-fade-up { animation: fade-up 0.2s ease-out; }
-  </style>
-  <script>
-  // Auth check for Jalan-Ready dashboard
-  const token = localStorage.getItem('auth_token');
-  if (!token) {
-    window.location.href = '/login.html';
-  }
-  // Optional: you can also send the token in every API request (e.g., in Authorization header)
-  // For simplicity, we assume the backend doesn't require token validation for prototype.
-  // But you can enhance by adding a middleware in FastAPI.
-</script>
 </body>
 </html>

@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="frontend/css/style.css" />
 
   <script>
     tailwind.config = {
@@ -79,11 +79,11 @@
     <form id="form-login" class="space-y-4">
       <div class="relative">
         <i class="fa-solid fa-envelope input-icon"></i>
-        <input type="email" placeholder="Email Address" class="input-field" required value="admin@jkr.selangor.gov.my" />
+        <input id="login-email" name="email" type="email" placeholder="Email Address" class="input-field" required />
       </div>
       <div class="relative">
         <i class="fa-solid fa-lock input-icon"></i>
-        <input type="password" placeholder="Password" class="input-field" required value="password123" />
+        <input id="login-password" name="password" type="password" placeholder="Password" class="input-field" required />
       </div>
       <div class="flex items-center justify-between text-xs">
         <label class="flex items-center text-slate-500 cursor-pointer">
@@ -95,34 +95,42 @@
       <button type="submit" class="dispatch-btn w-full mt-2 py-3 rounded-xl shadow-lg">
         Secure Login <i class="fa-solid fa-arrow-right-to-bracket ml-2"></i>
       </button>
+      <p id="login-message" class="text-sm text-slate-500 min-h-5"></p>
     </form>
 
     <form id="form-register" class="space-y-4 hidden">
       <div class="relative">
         <i class="fa-solid fa-user input-icon"></i>
-        <input type="text" placeholder="Full Name" class="input-field" required />
+        <input id="register-name" name="name" type="text" placeholder="Name (same as IC)" class="input-field" required />
       </div>
       <div class="relative">
         <i class="fa-solid fa-envelope input-icon"></i>
-        <input type="email" placeholder="Email Address" class="input-field" required />
+        <input id="register-email" name="email" type="email" placeholder="Email Address" class="input-field" required />
       </div>
       <div class="relative">
-        <i class="fa-solid fa-building input-icon"></i>
-        <select class="input-field appearance-none cursor-pointer text-slate-600" required>
-          <option value="" disabled selected>Select Role / Agency</option>
-          <option value="citizen">Public Citizen</option>
-          <option value="jkr">JKR Officer</option>
-          <option value="pbt">Local Council (PBT)</option>
-        </select>
-        <i class="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none"></i>
+        <i class="fa-solid fa-phone input-icon"></i>
+        <input id="register-phone-number" name="phone_number" type="tel" placeholder="Phone Number" class="input-field" required />
+      </div>
+      <div class="relative">
+        <i class="fa-solid fa-id-card input-icon"></i>
+        <input id="register-id-number" name="id_number" type="text" placeholder="IC Number or Passport Number" class="input-field" required />
+      </div>
+      <div class="relative">
+        <i class="fa-solid fa-location-dot input-icon"></i>
+        <input id="register-address" name="address" type="text" placeholder="Address" class="input-field" required />
+      </div>
+      <div class="relative">
+        <i class="fa-solid fa-map-pin input-icon"></i>
+        <input id="register-postcode" name="postcode" type="text" placeholder="Postcode" class="input-field" required />
       </div>
       <div class="relative">
         <i class="fa-solid fa-lock input-icon"></i>
-        <input type="password" placeholder="Create Password" class="input-field" required />
+        <input id="register-password" name="password" type="password" placeholder="Create Password" class="input-field" required />
       </div>
       <button type="submit" class="dispatch-btn w-full mt-2 py-3 rounded-xl shadow-lg" style="background: linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%);">
         Create Account <i class="fa-solid fa-user-plus ml-2"></i>
       </button>
+      <p id="register-message" class="text-sm text-slate-500 min-h-5"></p>
     </form>
 
     <div class="mt-8 text-center text-xs text-slate-400">
@@ -130,6 +138,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/auth.js"></script>
+  <script type="module" src="frontend/js/auth.js"></script>
 </body>
 </html>

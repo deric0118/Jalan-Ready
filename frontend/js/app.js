@@ -25,6 +25,26 @@ let   currentStep = 2;          // Stepper starts at "Pending Dispatch"
 
 // ─── DOMContentLoaded ─────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  // CHECK AUTHENTICATION FIRST
+  const authToken = localStorage.getItem('auth_token');
+  const authUserStr = localStorage.getItem('auth_user');
+  
+  if (!authToken || !authUserStr) {
+    // If no valid session found, redirect to login page
+    window.location.href = 'login.html'; 
+    return;
+  }
+
+  let user;
+  try {
+    user = JSON.parse(authUserStr);
+  } catch (e) {
+    // If user data is corrupted, redirect to login
+    window.location.href = 'login.html'; 
+    return;
+  }
+
+  // If authenticated, proceed with initialization
   initClock();
   initMetricCounters();
   initTerminal();
@@ -34,6 +54,16 @@ document.addEventListener('DOMContentLoaded', () => {
   initTerminalControls();
   initKeyboardShortcuts();
   triggerAnalysisMock();
+  initLogout();
+
+  // Optional: Welcome the specific user in the terminal
+  setTimeout(() => {
+    terminal?.appendInstant({ 
+      tag: 'SYSTEM', 
+      text: `Session established for user: ${user.name}`, 
+      type: 'success' 
+    });
+  }, 500);
 });
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -509,6 +539,16 @@ function showToast(type, title, message, duration = 4000) {
     clearTimeout(timer);
     toast.classList.add('out');
     setTimeout(() => toast.remove(), 280);
+  });
+}
+
+function initLogout() {
+  const logoutBtn = document.getElementById('logout-btn'); // Ensure your HTML has this ID
+  logoutBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    localStorage.removeItem('auth_user');
+    localStorage.removeItem('auth_token');
+    window.location.href = 'login.html';
   });
 }
 

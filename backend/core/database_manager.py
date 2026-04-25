@@ -34,6 +34,7 @@ class DatabaseManager:
                     'REPORTED', 
                     'IN_PROGRESS', 
                     'ESCALATED', 
+                    'DELAYED_TRAFFIC',
                     'RESOLVED',
                     'MANUAL_REVIEW'
                 )) DEFAULT 'NEW',

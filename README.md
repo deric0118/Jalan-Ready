@@ -6,9 +6,9 @@
 [Pitching Information](https://drive.google.com/drive/u/0/folders/182utHFD4SaSKKhOpj3jFbU7usVUgBFJT)
 Comprehensive technical documentation is provided in the `docs/` directory:
 
-* **[Product Requirement Documentation (PRD)](./docs/Product_Requirement_Documentation.pdf)**: Detailed problem statement, user stories, and feature scope.
-* **[System Analysis Documentation (SAD)](./docs/System_Analysis_Documentation.pdf)**: Technical architecture, data flow diagrams, and agentic workflow design.
-* **[Quality Assurance Testing Documentation (QATD)](./docs/Quality_Assurance_Testing_Documentation.pdf)**: Test strategy, CI/CD thresholds, and edge-case validation results.
+* **[Product Requirement Documentation (PRD)](./docs/docs/266 Poseidon UMHackathon2026 Product Requirement Documentation.docx.pdf)**: Detailed problem statement, user stories, and feature scope.
+* **[System Analysis Documentation (SAD)](./docs/docs/266 Poseidon UMHakcathon2026 Sample Testing Analysis Documentation (Preliminary).docx.pdf)**: Technical architecture, data flow diagrams, and agentic workflow design.
+* **[Quality Assurance Testing Documentation (QATD)](./docs/docs/266 Poseidon UMHakcathon2026 System Analysis Documentation.docx.pdf)**: Test strategy, CI/CD thresholds, and edge-case validation results.
 
 ## 📖 Overview
 Jalan-Ready bridges the gap between the public and infrastructure authorities. By leveraging natural language processing and computer vision, this system allows citizens to report road defects conversationally. The backend utilizes Agentic AI workflows to automatically assess damage severity, calculate priority, check weather conditions, and route the report to the correct federal (JKR) or local (PBT) jurisdiction in Selangor.

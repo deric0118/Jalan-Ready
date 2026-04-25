@@ -1,5 +1,10 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const BACKEND_BASE_URL = "http://127.0.0.1:8000";
+  // Detect environment: localhost = development, otherwise = production
+  const BACKEND_BASE_URL =
+    window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://127.0.0.1:8000'
+      : 'https://api.jalan-ready.tk'; // Replace with your actual production API URL
+  
   const LOGIN_ENDPOINT = `${BACKEND_BASE_URL}/api/login`;
   const SIGNUP_ENDPOINT = `${BACKEND_BASE_URL}/api/signup`;
   const REDIRECT_URL = "frontend/index.html";

@@ -1,6 +1,8 @@
 import sqlite3
 from datetime import datetime
 import os
+import csv
+from dotenv import load_dotenv
 
 class DatabaseManager:
     def __init__(self, db_name=None):
@@ -147,3 +149,52 @@ class DatabaseManager:
         """, (report_id,))
         conn.commit()
         conn.close()
+
+    def lookup_jurisdiction_contact(self, district: str, road_type: str) -> dict:
+        """
+        Tool for the AI to dynamically find the correct authority and email from the CSV.
+        Implements a safe testing mechanism (Gmail Alias Trick) using SMTP_USERNAME.
+        """
+        load_dotenv(override=True)  # Ensure we load the latest .env values, especially in testing environments
+        
+        csv_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "data", "selangor_jurisdiction.csv")
+        )
+        
+        # Clean inputs for robust matching
+        search_district = district.strip().lower()
+        search_road_type = road_type.strip().lower()
+        
+        # Fallback values if nothing matches
+        authority = "Unknown Authority"
+        raw_email = "aduan@jkr.gov.my"
+        
+        try:
+            with open(csv_path, mode='r', encoding='utf-8') as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    # Perform case-insensitive match
+                    if search_district in row['district'].lower() and search_road_type in row['road_type'].lower():
+                        authority = row['authority']
+                        raw_email = row['email']
+                        break
+        except FileNotFoundError:
+            return {"error": f"Jurisdiction CSV not found at {csv_path}"}
+            
+        # --- THE GMAIL ALIAS SAFETY TRICK ---
+        # Automatically pull the username from .env to generate the safe testing alias
+        sender_email = os.getenv("SMTP_USERNAME")
+        safe_email = raw_email
+        
+        if sender_email and "@" in sender_email:
+            username, domain = sender_email.split("@", 1)
+            # Example: target is 'aduan.petalingjkr@gmail.com' -> suffix is 'aduan.petalingjkr'
+            alias_suffix = raw_email.split("@")[0] 
+            safe_email = f"{username}+{alias_suffix}@{domain}"
+            
+        return {
+            "authority": authority, 
+            "real_target_email": raw_email, 
+            "safe_dispatch_email": safe_email,
+            "note": f"Using alias {safe_email} for safe testing instead of {raw_email}"
+        }

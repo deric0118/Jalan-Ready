@@ -1,143 +1,299 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Login — SIRCa Command Center</title>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jalan-Ready · Command Center Access</title>
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-
-  <link rel="stylesheet" href="frontend/css/style.css" />
-
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            selangor: { red: '#C8102E', gold: '#F5A623', redDark:'#9B0B22' },
-            sirca: { navy: '#0B1829', blue: '#0D2A4A', steel: '#1E3A5F', accent: '#0EA5E9' }
-          },
-          fontFamily: { display: ['Rajdhani', 'sans-serif'], body: ['DM Sans', 'sans-serif'] }
-        }
-      }
-    }
-  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <style>
-    /* 登录页专属动画与样式 */
-    .auth-bg {
-      background: radial-gradient(circle at top right, #1E3A5F 0%, #0B1829 60%);
+    body {
+      background: linear-gradient(145deg, #0B1829 0%, #0D2A4A 100%);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
     }
-    .auth-card {
-      animation: fadeSlideUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    .glass-card {
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.1);
     }
     .input-field {
-      width: 100%; padding: 12px 16px 12px 40px;
-      background: #F8FAFC; border: 1px solid #E2E8F0;
-      border-radius: 10px; font-size: 14px;
-      transition: all 0.2s ease;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      transition: all 0.2s;
     }
     .input-field:focus {
-      outline: none; border-color: #0EA5E9; background: #ffffff;
-      box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+      background: rgba(255,255,255,0.12);
+      border-color: #C8102E;
+      outline: none;
     }
-    .input-icon {
-      position: absolute; left: 14px; top: 50%;
-      transform: translateY(-50%); color: #94A3B8; font-size: 14px;
+    .btn-primary {
+      background: #C8102E;
+      transition: all 0.2s;
+    }
+    .btn-primary:hover {
+      background: #9B0B22;
+      transform: translateY(-1px);
+    }
+    .tab-active {
+      border-bottom: 2px solid #C8102E;
+      color: white;
+    }
+    .tab-inactive {
+      color: #94A3B8;
+    }
+    .error-text {
+      color: #f87171;
+      font-size: 0.75rem;
+      margin-top: 0.25rem;
     }
   </style>
 </head>
+<body class="flex items-center justify-center min-h-screen p-4">
 
-<body class="font-body auth-bg text-slate-800 min-h-screen flex items-center justify-center relative overflow-hidden">
-
-  <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-selangor-red via-selangor-gold to-selangor-red opacity-80"></div>
-  <div class="absolute -top-32 -left-32 w-96 h-96 bg-sirca-accent opacity-10 rounded-full blur-3xl"></div>
-  <div class="absolute -bottom-32 -right-32 w-96 h-96 bg-selangor-red opacity-10 rounded-full blur-3xl"></div>
-
-  <div class="sirca-card auth-card w-full max-w-md relative z-10 p-8 shadow-2xl">
-    
-    <div class="flex flex-col items-center justify-center mb-8">
-      <div class="relative w-14 h-14 mb-3">
-        <div class="absolute inset-0 rounded-xl bg-selangor-red opacity-20 animate-pulse-slow"></div>
-        <div class="relative flex items-center justify-center w-14 h-14 rounded-xl bg-selangor-red/10 border border-selangor-red/40">
-          <i class="fa-solid fa-road text-selangor-red text-2xl"></i>
-        </div>
+  <div class="glass-card rounded-3xl p-8 w-full max-w-md shadow-2xl">
+    <!-- Logo & Title -->
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-selangor-red/20 mb-4">
+        <i class="fa-solid fa-road text-selangor-red text-3xl"></i>
       </div>
-      <h1 class="font-display text-3xl font-bold tracking-wider text-sirca-navy">SIRCa</h1>
-      <p class="text-xs text-slate-500 uppercase tracking-widest mt-1">Command Center Access</p>
+      <h1 class="text-3xl font-bold text-white tracking-tight">Jalan-Ready</h1>
+      <p class="text-slate-400 text-sm mt-1">Selangor Intelligent RoadCare</p>
     </div>
 
-    <div class="flex p-1 mb-6 bg-slate-100 rounded-lg">
-      <button id="tab-login" class="flex-1 py-2 text-sm font-semibold rounded-md shadow-sm bg-white text-sirca-navy transition-all">Login</button>
-      <button id="tab-register" class="flex-1 py-2 text-sm font-medium rounded-md text-slate-500 hover:text-slate-700 transition-all">Sign Up</button>
+    <!-- Tabs -->
+    <div class="flex gap-6 border-b border-white/10 mb-6">
+      <button id="loginTab" class="pb-2 text-sm font-semibold transition tab-active">Login</button>
+      <button id="signupTab" class="pb-2 text-sm font-semibold text-slate-400 transition">Sign Up</button>
     </div>
 
-    <form id="form-login" class="space-y-4">
-      <div class="relative">
-        <i class="fa-solid fa-envelope input-icon"></i>
-        <input id="login-email" name="email" type="email" placeholder="Email Address" class="input-field" required />
+    <!-- Login Form -->
+    <div id="loginForm" class="space-y-4">
+      <div>
+        <label class="block text-slate-300 text-sm mb-1">Email</label>
+        <input type="email" id="loginEmail" placeholder="you@example.com" class="input-field w-full rounded-xl px-4 py-3 text-white placeholder:text-slate-500">
       </div>
-      <div class="relative">
-        <i class="fa-solid fa-lock input-icon"></i>
-        <input id="login-password" name="password" type="password" placeholder="Password" class="input-field" required />
+      <div>
+        <label class="block text-slate-300 text-sm mb-1">Password</label>
+        <input type="password" id="loginPassword" placeholder="········" class="input-field w-full rounded-xl px-4 py-3 text-white">
       </div>
-      <div class="flex items-center justify-between text-xs">
-        <label class="flex items-center text-slate-500 cursor-pointer">
-          <input type="checkbox" class="mr-2 rounded border-slate-300 text-sirca-accent focus:ring-sirca-accent" checked>
-          Remember me
-        </label>
-        <a href="#" class="text-sirca-accent hover:underline font-medium">Forgot Password?</a>
+      <div class="flex justify-between items-center text-sm">
+        <label class="flex items-center gap-2 text-slate-400"><input type="checkbox" class="rounded bg-white/10"> Remember me</label>
+        <a href="#" class="text-selangor-red hover:underline">Forget Password?</a>
       </div>
-      <button type="submit" class="dispatch-btn w-full mt-2 py-3 rounded-xl shadow-lg">
-        Secure Login <i class="fa-solid fa-arrow-right-to-bracket ml-2"></i>
+      <button id="doLogin" class="btn-primary w-full py-3 rounded-xl text-white font-semibold mt-2 flex items-center justify-center gap-2">
+        <i class="fa-solid fa-arrow-right-to-bracket"></i> Authenticating...
       </button>
-      <p id="login-message" class="text-sm text-slate-500 min-h-5"></p>
-    </form>
+      <div id="loginError" class="error-text hidden text-center"></div>
+    </div>
 
-    <form id="form-register" class="space-y-4 hidden">
-      <div class="relative">
-        <i class="fa-solid fa-user input-icon"></i>
-        <input id="register-name" name="name" type="text" placeholder="Name (same as IC)" class="input-field" required />
+    <!-- Sign Up Form (hidden initially) -->
+    <div id="signupForm" class="space-y-3 hidden">
+      <div class="grid grid-cols-2 gap-3">
+        <div><input type="text" id="signupName" placeholder="Full name" class="input-field w-full rounded-xl px-3 py-2 text-white text-sm"></div>
+        <div><input type="email" id="signupEmail" placeholder="Email" class="input-field w-full rounded-xl px-3 py-2 text-white text-sm"></div>
       </div>
-      <div class="relative">
-        <i class="fa-solid fa-envelope input-icon"></i>
-        <input id="register-email" name="email" type="email" placeholder="Email Address" class="input-field" required />
+      <div class="grid grid-cols-2 gap-3">
+        <div><input type="text" id="signupPhone" placeholder="Phone" class="input-field w-full rounded-xl px-3 py-2 text-white text-sm"></div>
+        <div><input type="text" id="signupIc" placeholder="IC/Passport" class="input-field w-full rounded-xl px-3 py-2 text-white text-sm"></div>
       </div>
-      <div class="relative">
-        <i class="fa-solid fa-phone input-icon"></i>
-        <input id="register-phone-number" name="phone_number" type="tel" placeholder="Phone Number" class="input-field" required />
+      <div><input type="text" id="signupAddress" placeholder="Address" class="input-field w-full rounded-xl px-3 py-2 text-white text-sm"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><input type="text" id="signupPostcode" placeholder="Postcode" class="input-field w-full rounded-xl px-3 py-2 text-white text-sm"></div>
+        <div><input type="password" id="signupPassword" placeholder="Password" class="input-field w-full rounded-xl px-3 py-2 text-white text-sm"></div>
       </div>
-      <div class="relative">
-        <i class="fa-solid fa-id-card input-icon"></i>
-        <input id="register-id-number" name="id_number" type="text" placeholder="IC Number or Passport Number" class="input-field" required />
-      </div>
-      <div class="relative">
-        <i class="fa-solid fa-location-dot input-icon"></i>
-        <input id="register-address" name="address" type="text" placeholder="Address" class="input-field" required />
-      </div>
-      <div class="relative">
-        <i class="fa-solid fa-map-pin input-icon"></i>
-        <input id="register-postcode" name="postcode" type="text" placeholder="Postcode" class="input-field" required />
-      </div>
-      <div class="relative">
-        <i class="fa-solid fa-lock input-icon"></i>
-        <input id="register-password" name="password" type="password" placeholder="Create Password" class="input-field" required />
-      </div>
-      <button type="submit" class="dispatch-btn w-full mt-2 py-3 rounded-xl shadow-lg" style="background: linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%);">
-        Create Account <i class="fa-solid fa-user-plus ml-2"></i>
+      <button id="doSignup" class="btn-primary w-full py-3 rounded-xl text-white font-semibold mt-2 flex items-center justify-center gap-2">
+        <i class="fa-solid fa-user-plus"></i> Create account
       </button>
-      <p id="register-message" class="text-sm text-slate-500 min-h-5"></p>
-    </form>
+      <div id="signupError" class="error-text hidden text-center"></div>
+    </div>
 
-    <div class="mt-8 text-center text-xs text-slate-400">
-      &copy; 2026 Selangor Intelligent RoadCare.<br>Restricted Gov-Tech Portal.
+    <div class="text-center text-slate-500 text-xs mt-8 pt-4 border-t border-white/10">
+      © 2026 Jalan-Ready. Restricted Gov‑Tech Portal.
     </div>
   </div>
 
-  <script type="module" src="frontend/js/auth.js"></script>
+  <script>
+    // Switch between tabs
+    const loginTab = document.getElementById('loginTab');
+    const signupTab = document.getElementById('signupTab');
+    const loginFormDiv = document.getElementById('loginForm');
+    const signupFormDiv = document.getElementById('signupForm');
+    const loginError = document.getElementById('loginError');
+    const signupError = document.getElementById('signupError');
+
+    loginTab.addEventListener('click', () => {
+      loginTab.classList.add('tab-active', 'text-white');
+      loginTab.classList.remove('tab-inactive');
+      signupTab.classList.remove('tab-active');
+      signupTab.classList.add('tab-inactive');
+      loginFormDiv.classList.remove('hidden');
+      signupFormDiv.classList.add('hidden');
+      loginError.classList.add('hidden');
+      signupError.classList.add('hidden');
+    });
+
+    signupTab.addEventListener('click', () => {
+      signupTab.classList.add('tab-active', 'text-white');
+      signupTab.classList.remove('tab-inactive');
+      loginTab.classList.remove('tab-active');
+      loginTab.classList.add('tab-inactive');
+      signupFormDiv.classList.remove('hidden');
+      loginFormDiv.classList.add('hidden');
+      loginError.classList.add('hidden');
+      signupError.classList.add('hidden');
+    });
+
+    // Helper to show error
+    function showError(container, message) {
+      container.textContent = message;
+      container.classList.remove('hidden');
+      setTimeout(() => container.classList.add('hidden'), 5000);
+    }
+
+    // Detect backend URL
+    const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://127.0.0.1:8000'
+      : 'https://api.jalan-ready.tk'; // Replace with your production API URL
+
+    // LOGIN
+    document.getElementById('doLogin').addEventListener('click', async () => {
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      if (!email || !password) {
+        showError(loginError, 'Please enter email and password.');
+        return;
+      }
+      const btn = document.getElementById('doLogin');
+      const originalHtml = btn.innerHTML;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...';
+      btn.disabled = true;
+
+      try {
+        console.log(`[LOGIN] Attempting login for ${email} at ${BACKEND_URL}/api/login`);
+        
+        // Create abort controller with 30 second timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+        const response = await fetch(`${BACKEND_URL}/api/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+        console.log(`[LOGIN] Response received. Status: ${response.status}`);
+
+        // Check if response is actually JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error('[LOGIN] Invalid content type:', contentType);
+          throw new Error('Backend not responding properly. Check if backend server is running on port 8000.');
+        }
+
+        const data = await response.json();
+        console.log('[LOGIN] Response data:', data);
+        
+        if (!response.ok) throw new Error(data.detail || 'Login failed');
+        
+        // Store token and user info
+        localStorage.setItem('auth_token', data.token);
+        localStorage.setItem('auth_user', JSON.stringify(data.user));
+        console.log('[LOGIN] Token stored. Redirecting to frontend/index.html');
+        
+        // Redirect to main dashboard
+        setTimeout(() => {
+          window.location.href = './frontend/index.html';
+        }, 500);
+      } catch (err) {
+        console.error('[LOGIN] Error:', err);
+        let errorMsg = err.message;
+        if (err.name === 'AbortError') {
+          errorMsg = 'Request timeout (10 seconds). Backend server may not be running.';
+        } else if (errorMsg.includes('Failed to fetch')) {
+          errorMsg = 'Cannot reach backend server. Ensure it is running: python -m uvicorn backend.app:app --reload';
+        }
+        showError(loginError, errorMsg);
+      } finally {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+      }
+    });
+
+    // SIGNUP
+    document.getElementById('doSignup').addEventListener('click', async () => {
+      const name = document.getElementById('signupName').value.trim();
+      const email = document.getElementById('signupEmail').value.trim();
+      const phone = document.getElementById('signupPhone').value.trim();
+      const ic = document.getElementById('signupIc').value.trim();
+      const address = document.getElementById('signupAddress').value.trim();
+      const postcode = document.getElementById('signupPostcode').value.trim();
+      const password = document.getElementById('signupPassword').value;
+
+      if (!name || !email || !phone || !ic || !address || !postcode || !password) {
+        showError(signupError, 'All fields are required.');
+        return;
+      }
+      const btn = document.getElementById('doSignup');
+      const originalHtml = btn.innerHTML;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating account...';
+      btn.disabled = true;
+
+      try {
+        console.log(`[SIGNUP] Attempting signup for ${email} at ${BACKEND_URL}/api/signup`);
+        
+        // Create abort controller with 30 second timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+        const response = await fetch(`${BACKEND_URL}/api/signup`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password, phone_number: phone, id_number: ic, address, postcode }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+        console.log(`[SIGNUP] Response received. Status: ${response.status}`);
+
+        // Check if response is actually JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error('[SIGNUP] Invalid content type:', contentType);
+          throw new Error('Backend not responding properly. Check if backend server is running on port 8000.');
+        }
+
+        const data = await response.json();
+        console.log('[SIGNUP] Response data:', data);
+        
+        if (!response.ok) throw new Error(data.detail || 'Signup failed');
+        
+        // Auto-login: store token and redirect
+        localStorage.setItem('auth_token', data.token);
+        localStorage.setItem('auth_user', JSON.stringify(data.user));
+        console.log('[SIGNUP] Account created. Redirecting to frontend/index.html');
+        
+        setTimeout(() => {
+          window.location.href = './frontend/index.html';
+        }, 500);
+      } catch (err) {
+        console.error('[SIGNUP] Error:', err);
+        let errorMsg = err.message;
+        if (err.name === 'AbortError') {
+          errorMsg = 'Request timeout (10 seconds). Backend server may not be running.';
+        } else if (errorMsg.includes('Failed to fetch')) {
+          errorMsg = 'Cannot reach backend server. Ensure it is running: python -m uvicorn backend.app:app --reload';
+        }
+        showError(signupError, errorMsg);
+      } finally {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+      }
+    });
+
+    // If already logged in, keep the login page visible.
+    // This page should always show the login form first.
+  </script>
 </body>
 </html>

@@ -1,0 +1,156 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "check_nearby_reports",
+      "description": "Searches the database for active reports within 50 meters.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "latitude": { "type": "number" },
+          "longitude": { "type": "number" }
+        },
+        "required": ["latitude", "longitude"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get_weather",
+      "description": "Returns current conditions and rain forecast for a GPS coordinate.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "latitude": { "type": "number" },
+          "longitude": { "type": "number" }
+        },
+        "required": ["latitude", "longitude"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get_traffic",
+      "description": "Returns travel time and congestion level from depot to defect.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "origin": { "type": "string", "description": "Depot GPS" },
+          "destination": { "type": "string", "description": "Defect GPS" }
+        },
+        "required": ["origin", "destination"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "geocode_location",
+      "description": "Converts a user-provided address or place name into GPS coordinates.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location_name": { "type": "string", "description": "Address or landmark name" }
+        },
+        "required": ["location_name"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "reverse_geocode",
+      "description": "Takes GPS coordinates and returns the full address, road name, and road classification.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "latitude": { "type": "number" },
+          "longitude": { "type": "number" }
+        },
+        "required": ["latitude", "longitude"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "check_historical_failure",
+      "description": "Checks database for previous reports within 100m. Returns true if repeat failure.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "latitude": { "type": "number" },
+          "longitude": { "type": "number" }
+        },
+        "required": ["latitude", "longitude"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "find_nearby_infrastructure",
+      "description": "Scans for nearby schools or hospitals within 150m to dynamically adjust urgency.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "latitude": { "type": "number" },
+          "longitude": { "type": "number" }
+        },
+        "required": ["latitude", "longitude"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "send_user_prompt",
+      "description": "Sends a message to the user asking for missing info (e.g., exact location).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string", "description": "The exact message to send to the user" }
+        },
+        "required": ["message"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "lookup_jurisdiction_contact",
+      "description": "Looks up the responsible authority and their contact email based on district and road type.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "district": { "type": "string", "description": "The district name, e.g., 'Petaling', 'Klang'" },
+          "road_type": { "type": "string", "description": "The classification of the road: 'Federal', 'State', or 'Municipal'" }
+        },
+        "required": ["district", "road_type"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "dispatch_work_order",
+      "description": "Sends an official email work order to the assigned government contractor or authority.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dispatch_email": { "type": "string", "description": "The target email address for the authority" },
+          "assigned_authority": { "type": "string", "description": "Name of the authority (e.g., JKR Federal)" },
+          "urgency_score": { "type": "integer" },
+          "defect_type": { "type": "string" },
+          "road_name": { "type": "string" },
+          "weather_state": { "type": "string", "description": "Current weather description" },
+          "latitude": { "type": "number" },
+          "longitude": { "type": "number" }
+        },
+        "required": ["dispatch_email", "assigned_authority", "urgency_score", "defect_type", "road_name", "latitude", "longitude"]
+      }
+    }
+  }
+]

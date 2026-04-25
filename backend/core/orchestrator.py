@@ -4,23 +4,25 @@ from dotenv import load_dotenv
 
 from zhipuai import ZhipuAI
 
-# Explicit backend imports
-from backend.services.vision_service import VisionService
-from backend.services.traffic_service import TrafficService
-from backend.services.weather_service import WeatherService
-from backend.services.geocoding_service import GeocodingService # <-- NEW
-from backend.core.database_manager import DatabaseManager
-from backend.core.state_manager import StateManager 
+# Explicit backend imports (using relative imports)
+from ..services.vision_service import VisionService
+from ..services.traffic_service import TrafficService
+from ..services.weather_service import WeatherService
+from ..services.geocoding_service import GeocodingService
+from .database_manager import DatabaseManager
+from .state_manager import StateManager 
+from ..services.email_service import EmailService
 
 # Import the engine tool for user communication
-from backend.core.engine_tools import tool_c_user_communicator # <-- NEW
+from .engine_tools import tool_c_user_communicator 
 
 load_dotenv(override=True)
 
 class JalanReadyAgent:
     def __init__(self):
         """
-        Initializes the True Autonomous Orchestrator with 6 Tool Integrations.
+        Initializes the True Autonomous Orchestrator.
+        Loads tools dynamically from backend/config/agent_tools.json
         """
         api_key = os.getenv("ZAI_API_KEY")
         base_url = os.getenv("ZAI_BASE_URL")
@@ -37,189 +39,46 @@ class JalanReadyAgent:
         self.vision_service = VisionService(model_weight_path="models/yolov8.onnx")
         self.traffic_service = TrafficService()
         self.weather_service = WeatherService()
-        self.geocoding_service = GeocodingService() # Added Geocoding Service
+        self.geocoding_service = GeocodingService() 
+        self.email_service = EmailService() 
         
         self.db = DatabaseManager()
         self.state_manager = StateManager(self.db)
         
         self.depot_location = "3.1073, 101.6067" # JKR Central Depot 
+        self.current_image_path = None # Store image path for email attachment
 
-        # 🚀 REGISTERING ALL 6 TOOLS FOR THE AI BRAIN
-        self.tools = [
-            {
-                "type": "function",
-                "function": {
-                    "name": "check_nearby_reports",
-                    "description": "Searches the database for active reports within 50 meters.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "latitude": {"type": "number"},
-                            "longitude": {"type": "number"}
-                        },
-                        "required": ["latitude", "longitude"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "get_weather",
-                    "description": "Returns current conditions and rain forecast for a GPS coordinate.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "latitude": {"type": "number"},
-                            "longitude": {"type": "number"}
-                        },
-                        "required": ["latitude", "longitude"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "get_traffic",
-                    "description": "Returns travel time and congestion level from depot to defect.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "origin": {"type": "string", "description": "Depot GPS"},
-                            "destination": {"type": "string", "description": "Defect GPS"}
-                        },
-                        "required": ["origin", "destination"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "geocode_location",
-                    "description": "Converts a user-provided address or place name into GPS coordinates.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "location_name": {"type": "string", "description": "Address or landmark name"}
-                        },
-                        "required": ["location_name"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "reverse_geocode",
-                    "description": "Takes GPS coordinates and returns the full address, road name, and road classification.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "latitude": {"type": "number"},
-                            "longitude": {"type": "number"}
-                        },
-                        "required": ["latitude", "longitude"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "check_historical_failure",
-                    "description": "Checks database for previous reports within 100m. Returns true if repeat failure.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "latitude": {"type": "number"},
-                            "longitude": {"type": "number"}
-                        },
-                        "required": ["latitude", "longitude"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "send_user_prompt",
-                    "description": "Sends a message to the user asking for missing info (e.g., exact location).",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "message": {"type": "string", "description": "The exact message to send to the user"}
-                        },
-                        "required": ["message"]
-                    }
-                }
-            }
-        ]
+        # 🚀 LOAD EXTERNAL CONFIGURATIONS (Separation of Concerns)
+        self.config_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "config"))
+        tools_path = os.path.join(self.config_dir, "agent_tools.json")
+        
+        try:
+            with open(tools_path, "r", encoding="utf-8") as file:
+                self.tools = json.load(file)
+            print("✅ [SYSTEM] Successfully loaded agent_tools.json")
+        except Exception as e:
+            print(f"⚠️ [SYSTEM ERROR] Could not load agent_tools.json. Did you create backend/config/agent_tools.json? Error: {e}")
+            self.tools = []
 
     def process_new_report(self, image_path: str, location_input: str) -> dict:
         """
-        The Entry Point. Note that 'location_input' might be raw text now, not just GPS.
+        The Entry Point. Loads prompt dynamically from backend/config/system_prompt.md
         """
         print(f"\n--- 🚀 Agent Activated: New Report at [{location_input}] ---")
+        self.current_image_path = image_path 
 
-        # Step 1: The "Eyes"
         print("[SENSORY INPUT] Parsing dashcam image through YOLO...")
         vision_data = self.vision_service.analyze_image(image_path)
+        self.current_vision_confidence = vision_data.get('confidence', 0.95) if isinstance(vision_data, dict) else 0.95
         
-        # Step 2: System Instructions (Your updated prompt)
-        system_prompt = """
-        You are the Central Reasoning Engine for Jalan-Ready, a fully autonomous road-defect management system for Selangor, Malaysia.
-
-        Your job is to orchestrate the entire lifecycle of a new report: triage, assessment, scheduling, and dispatch preparation.
-        You have a set of tools that provide live data and execute actions. You MUST use them proactively before making any final decision. Do not assume - always call the tools to gather real information.
-
-        ## Reasoning Rules - You Must Follow These
-
-        ### 1. Data Completeness Check
-        Before proceeding, confirm that you have GPS coordinates and a defect type. If GPS is missing and no address can be extracted, call `send_user_prompt` to ask for the location. Do NOT continue until coordinates are resolved.
-
-        ### 2. Deduplication Check (Agentic Reasoning)
-        - Call `check_nearby_reports` using the GPS coordinates. 
-        - Look at the returned data. If there is an active report with a similar `defect_type` at the same `road_name`, you must conclude this is a duplicate report by another citizen.
-        - If it IS a duplicate, set "is_duplicate" to true, and put the matching ID in "duplicate_of_id".
-
-        ### 3. Jurisdiction Assignment (CRITICAL MALAYSIAN HIERARCHY)
-        CRITICAL RULE: Google Maps reverse geocoding often incorrectly snaps highway coordinates to nearby municipal side roads. You MUST check BOTH the user's original location input and the `reverse_geocode` output.
-        If EITHER the user input OR the geocode output contains 'Federal', 'Highway', 'Lebuhraya', 'Expressway', 'E', or 'FT', you MUST ignore the side road and assign authority based on the highway:
-        - Expressways ('E', 'Lebuhraya', 'Expressway') -> Assign to 'Highway Concessionaire (LLM)'.
-        - Federal Roads ('FT', 'Federal', 'Highway') -> Assign to 'JKR Federal'.
-        - State Roads (Starts with 'B' and not 'FT') -> Assign to 'JKR State'.
-        - Municipal Roads (Standard 'Jalan' without above prefixes) -> Map the locality to the exact Local Council (e.g., 'MBPJ', 'MBSA', 'MPK').
-
-        ### 4. Urgency Calculation (Base + Modifiers)
-        - 'sinkhole', 'structural_failure' -> 90
-        - 'pothole', 'alligator_cracking' -> 60
-        - 'crack' -> 40
-        - 'faded_markings' -> 20
-
-        Modifiers:
-        - Historical recurrence (`check_historical_failure`): if true, +30, add "Structural Audit Required".
-        - Weather influence (`get_weather`): Heavy rain + sinkhole = 100. Rain + surface work = 'AWAITING_INFO'.
-        - Traffic impact (`get_traffic`): High congestion + major arterial = +10 urgency.
-
-        ### 5. Scheduling Recommendation
-        - If wet conditions prevent work, set workflow_state to 'AWAITING_INFO'. The system's background engine will automatically re-trigger you in 24 hours to re-evaluate the weather.
-        - IMPORTANT: `scheduled_time` must NEVER be null. If delayed by weather, output "24 Hours from now (Pending Re-evaluation)". Otherwise, propose a specific off-peak time window for immediate dispatch.
-
-        ### 6. Final Output Format
-        After gathering all tool data, output ONLY a JSON object:
-        {
-          "is_duplicate": <boolean>,
-          "duplicate_of_id": "<ID or null>",
-          "latitude": <float>,
-          "longitude": <float>,
-          "urgency_score": <int>,
-          "assigned_authority": "<exact authority name>",
-          "workflow_state": "<NEW | AWAITING_INFO | REPORTED | IN_PROGRESS | ESCALATED | RESOLVED | MANUAL_REVIEW>",
-          "road_name": "<extracted road name>",
-          "defect_type": "<from vision>",
-          "scheduled_time": "<String, e.g., 'Tomorrow Morning' or '24 Hours from now'>",
-          "reasoning_path": "<concise sentence explaining the decision>",
-          "dispatch_email": "<destination email or placeholder>"
-        }
-        """
+        prompt_path = os.path.join(self.config_dir, "system_prompt.md")
+        try:
+            with open(prompt_path, "r", encoding="utf-8") as file:
+                system_prompt = file.read()
+        except Exception as e:
+            print(f"⚠️ [SYSTEM ERROR] Could not load system_prompt.md. Error: {e}")
+            return {"error": "Prompt configuration missing."}
         
-        # Step 3: Trigger the Agent
         user_message = f"Citizen report location input: '{location_input}'. Vision sensor detects: {json.dumps(vision_data)}. Please take over orchestration. Depot is at {self.depot_location}."
 
         messages = [
@@ -229,14 +88,57 @@ class JalanReadyAgent:
 
         return self._execute_agent_loop(messages)
 
+    def plan_logistics_route(self, depot_gps: str, tasks: list) -> dict:
+        """
+        The Second Brain: Acts as a Logistics Dispatcher to sequence multi-stop routes.
+        """
+        if not self.glm_client:
+            return {"error": "ZAI API Key missing.", "optimized_order": [t['id'] for t in tasks], "reasoning": "API Offline. Default order."}
+
+        system_prompt = """
+        You are the Chief Logistics AI for Jalan-Ready.
+        Your job is to sequence a multi-stop repair route for a construction team.
+        You will be provided with the starting Depot GPS, and a list of tasks with their GPS coordinates and urgency scores.
+        
+        Your Goal: Determine the most logical sequence to visit these locations, prioritizing clustered locations to minimize travel time, while also factoring in high urgency.
+        
+        Return ONLY a JSON object with this exact structure:
+        {
+          "optimized_order": [list of task IDs in the optimal sequence],
+          "reasoning": "A brief explanation of why you chose this route (e.g., 'I routed you to task X first because it is closest to the depot, then grouped task Y and Z to avoid backtracking')."
+        }
+        """
+
+        user_message = f"Depot Coordinates: {depot_gps}. Please sequence these tasks: {json.dumps(tasks)}"
+
+        try:
+            response = self.glm_client.chat.completions.create(
+                model="ilmu-glm-5.1",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message}
+                ],
+                temperature=0.2
+            )
+            
+            result_text = response.choices[0].message.content or ""
+            import re
+            json_match = re.search(r'\{.*\}', result_text, re.DOTALL)
+            
+            if json_match:
+                return json.loads(json_match.group(0))
+            else:
+                return {"optimized_order": [t['id'] for t in tasks], "reasoning": "Failed to generate optimized route. Falling back to default order."}
+                
+        except Exception as e:
+            return {"optimized_order": [t['id'] for t in tasks], "reasoning": f"AI Routing Error: {str(e)}"}
+
     def _execute_agent_loop(self, messages: list) -> dict:
-        """
-        The True Agentic Loop catching all 6 tools.
-        """
+        """The True Agentic Loop catching all tools."""
         if not self.glm_client:
             return {"error": "ZAI_API_KEY missing."}
 
-        max_loops = 8 # Increased limit since it might need to call 4+ tools in a row
+        max_loops = 12 
         loop_count = 0
 
         while loop_count < max_loops:
@@ -259,44 +161,37 @@ class JalanReadyAgent:
                         
                         print(f"🤖 [AGENT THOUGHT] Using tool: {function_name}()")
                         
-                        # --- TOOL EXECUTION ROUTER ---
                         result = {}
                         
                         if function_name == "get_weather":
                             result = self.weather_service.analyze_conditions(arguments.get('latitude', 0), arguments.get('longitude', 0))
-                            
                         elif function_name == "get_traffic":
                             result = self.traffic_service.analyze_traffic_constraints(arguments.get('origin', ''), arguments.get('destination', ''))
-                            
                         elif function_name == "geocode_location":
-                            # Use your geocoding service (add a fallback if it fails)
                             try:
                                 result = self.geocoding_service.geocode(arguments.get('location_name', ''))
                             except Exception as e:
                                 result = {"error": f"Failed to geocode: {str(e)}"}
-                                
                         elif function_name == "reverse_geocode":
                             try:
                                 result = self.geocoding_service.reverse_geocode(arguments.get('latitude', 0), arguments.get('longitude', 0))
                             except Exception as e:
                                 result = {"error": "Reverse geocode failed", "road_prefix": "Unknown"}
-                                
                         elif function_name == "check_historical_failure":
                             try:
-                                # Assumes a method exists in database_manager.py
-                                has_history = self.db.check_historical_recurrence(arguments.get('latitude', 0), arguments.get('longitude', 0))
-                                result = {"has_history": has_history, "note": "Checked 100m radius."}
+                                result = self.db.check_historical_recurrence(arguments.get('latitude', 0), arguments.get('longitude', 0))
                             except AttributeError:
-                                # Safe hackathon fallback if method isn't fully coded yet
                                 result = {"has_history": False, "note": "Mock DB Check: No recurrence found."}
-                                
+                        elif function_name == "find_nearby_infrastructure":
+                            try:
+                                result = self.geocoding_service.find_nearby_infrastructure(arguments.get('latitude', 0), arguments.get('longitude', 0))
+                            except Exception as e:
+                                result = {"error": f"Infrastructure scan failed: {str(e)}"}
                         elif function_name == "send_user_prompt":
                             try:
-                                # Calls the user communicator tool
                                 result = tool_c_user_communicator(message=arguments.get('message', ''))
                             except Exception:
                                 result = {"status": "success", "action": "Prompted user", "content": arguments.get('message')}
-                        
                         elif function_name == "check_nearby_reports":
                             try:
                                 result = self.db.get_nearby_active_reports(arguments.get('latitude', 0), arguments.get('longitude', 0))
@@ -304,41 +199,59 @@ class JalanReadyAgent:
                                     result = {"message": "No nearby active reports found."}
                             except AttributeError:
                                 result = {"message": "Database error checking reports."}
-                                
+                        elif function_name == "lookup_jurisdiction_contact":
+                            try:
+                                result = self.db.lookup_jurisdiction_contact(
+                                    district=arguments.get('district', ''), 
+                                    road_type=arguments.get('road_type', '')
+                                )
+                            except Exception as e:
+                                result = {"error": f"Lookup failed: {str(e)}"}
+                        elif function_name == "dispatch_work_order":
+                            try:
+                                email_data = {
+                                    "yolo_label": arguments.get("defect_type", "Unknown"), 
+                                    "road_name": arguments.get("road_name", "Unknown"),
+                                    "confidence": self.current_vision_confidence,
+                                    "weather": arguments.get("weather_state", "Clear"),
+                                    "lat": arguments.get("latitude", 0.0),
+                                    "lon": arguments.get("longitude", 0.0)
+                                }
+                                success = self.email_service.send_report(
+                                    recipient_email=arguments.get("dispatch_email"),
+                                    authority=arguments.get("assigned_authority"),
+                                    urgency=arguments.get("urgency_score"),
+                                    data=email_data,
+                                    image_path=self.current_image_path
+                                )
+                                if success:
+                                    result = {"status": "success", "message": f"Email sent to {arguments.get('dispatch_email')}"}
+                                else:
+                                    result = {"status": "failed", "message": "SMTP Email failed to send."}
+                            except Exception as e:
+                                result = {"error": f"Email dispatch error: {str(e)}"}
                         else:
                             result = {"error": "Unknown tool"}
 
                         print(f"✅ [TOOL DATA] {function_name} returned data.")
-                        
-                        # Feed the result back to Z.ai
                         messages.append({
                             "role": "tool",
                             "tool_call_id": tool_call.id,
                             "content": json.dumps(result)
                         })
-                        
-                    continue # Restart loop to let AI process the new tool data
+                    continue 
 
                 else:
                     print("🤖 [AGENT THOUGHT] Orchestration complete. Generating final output.")
-                    # Safely grab the text, defaulting to empty string if None
                     result_text = response_message.content or "" 
-                    
-                    # 🚀 ROBUST JSON EXTRACTION
                     import re
-                    # Hunt for anything that looks like { ... }
                     json_match = re.search(r'\{.*\}', result_text, re.DOTALL)
-                    
                     if json_match:
                         try:
-                            # Parse only the matched JSON part
                             return json.loads(json_match.group(0))
                         except Exception as e:
-                            print(f"⚠️ [JSON PARSE ERROR] Python couldn't read the JSON: {e}")
-                            # Fallback: show exactly what the AI said so we can debug
                             return {"error": "Malformed JSON from Agent", "raw_ai_response": result_text}
                     else:
-                        print("⚠️ [NO JSON FOUND] Agent replied with plain text instead of JSON.")
                         return {"error": "Agent failed to format JSON", "raw_ai_response": result_text}
 
             except Exception as e:
@@ -346,14 +259,3 @@ class JalanReadyAgent:
                 return {"error": str(e)}
         
         return {"error": "Agent exceeded max tool-calling loops."}
-
-# --- TEST BLOCK ---
-if __name__ == "__main__":
-    orchestrator = JalanReadyAgent()
-    # Testing with raw text to see if the agent uses 'geocode_location' first!
-    final_decision = orchestrator.process_new_report(
-        image_path="C:\\Users\\njxnj\\Downloads\\Telegram Desktop\\test_road.jpg",
-        location_input="Jalan SS2/24, Petaling Jaya" 
-    )
-    print("\n--- 🧠 FINAL JSON ---")
-    print(json.dumps(final_decision, indent=2))

@@ -1,6 +1,8 @@
 import sqlite3
 from datetime import datetime
 import os
+import csv
+from dotenv import load_dotenv
 
 class DatabaseManager:
     def __init__(self, db_name=None):
@@ -79,7 +81,7 @@ class DatabaseManager:
         :param lat: Latitude of the current detection.
         :param lon: Longitude of the current detection.
         :param threshold_deg: Search radius in degrees (0.0001 ~= 11 meters).
-        :return: Boolean indicating if the location has a history of failure.
+        :return: Dictionary containing details of previous failures for AI Root Cause Analysis.
         """
         try:
             cursor = self.conn.cursor()
@@ -89,21 +91,25 @@ class DatabaseManager:
             lon_min, lon_max = lon - threshold_deg, lon + threshold_deg
 
             query = '''
-                SELECT COUNT(*) FROM reports 
+                SELECT id, defect_type, updated_at FROM reports 
                 WHERE latitude BETWEEN ? AND ? 
                 AND longitude BETWEEN ? AND ?
                 AND workflow_state = 'RESOLVED'
             '''
 
             cursor.execute(query, (lat_min, lat_max, lon_min, lon_max))
-            count = cursor.fetchone()[0]
+            rows = cursor.fetchall()
 
-            # If count > 0, this is a recurring structural issue
-            return count > 0
+            # If rows exist, format them so the AI can read what failed previously
+            if rows:
+                history = [{"report_id": r[0], "past_defect_type": r[1], "resolved_date": r[2]} for r in rows]
+                return {"has_history": True, "message": "Previous resolved repairs found.", "history_details": history}
+            else:
+                return {"has_history": False, "message": "No previous repairs found.", "history_details": []}
 
         except Exception as e:
             print(f"⚠️ [SYSTEM ERROR] Tool D failure: {e}")
-            return False  # Fail-safe: assume not recurring if DB fails
+            return {"has_history": False, "error": str(e)}
 
     def get_nearby_active_reports(self, lat: float, lon: float, radius_meters=50) -> list:
         """
@@ -143,3 +149,52 @@ class DatabaseManager:
         """, (report_id,))
         conn.commit()
         conn.close()
+
+    def lookup_jurisdiction_contact(self, district: str, road_type: str) -> dict:
+        """
+        Tool for the AI to dynamically find the correct authority and email from the CSV.
+        Implements a safe testing mechanism (Gmail Alias Trick) using SMTP_USERNAME.
+        """
+        load_dotenv(override=True)  # Ensure we load the latest .env values, especially in testing environments
+        
+        csv_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "data", "selangor_jurisdiction.csv")
+        )
+        
+        # Clean inputs for robust matching
+        search_district = district.strip().lower()
+        search_road_type = road_type.strip().lower()
+        
+        # Fallback values if nothing matches
+        authority = "Unknown Authority"
+        raw_email = "aduan@jkr.gov.my"
+        
+        try:
+            with open(csv_path, mode='r', encoding='utf-8') as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    # Perform case-insensitive match
+                    if search_district in row['district'].lower() and search_road_type in row['road_type'].lower():
+                        authority = row['authority']
+                        raw_email = row['email']
+                        break
+        except FileNotFoundError:
+            return {"error": f"Jurisdiction CSV not found at {csv_path}"}
+            
+        # --- THE GMAIL ALIAS SAFETY TRICK ---
+        # Automatically pull the username from .env to generate the safe testing alias
+        sender_email = os.getenv("SMTP_USERNAME")
+        safe_email = raw_email
+        
+        if sender_email and "@" in sender_email:
+            username, domain = sender_email.split("@", 1)
+            # Example: target is 'aduan.petalingjkr@gmail.com' -> suffix is 'aduan.petalingjkr'
+            alias_suffix = raw_email.split("@")[0] 
+            safe_email = f"{username}+{alias_suffix}@{domain}"
+            
+        return {
+            "authority": authority, 
+            "real_target_email": raw_email, 
+            "safe_dispatch_email": safe_email,
+            "note": f"Using alias {safe_email} for safe testing instead of {raw_email}"
+        }

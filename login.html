@@ -51,7 +51,6 @@
 <body class="flex items-center justify-center min-h-screen p-4">
 
   <div class="glass-card rounded-3xl p-8 w-full max-w-md shadow-2xl">
-    <!-- Logo & Title -->
     <div class="text-center mb-8">
       <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-selangor-red/20 mb-4">
         <i class="fa-solid fa-road text-selangor-red text-3xl"></i>
@@ -60,13 +59,11 @@
       <p class="text-slate-400 text-sm mt-1">Selangor Intelligent RoadCare</p>
     </div>
 
-    <!-- Tabs -->
     <div class="flex gap-6 border-b border-white/10 mb-6">
       <button id="loginTab" class="pb-2 text-sm font-semibold transition tab-active">Login</button>
       <button id="signupTab" class="pb-2 text-sm font-semibold text-slate-400 transition">Sign Up</button>
     </div>
 
-    <!-- Login Form -->
     <div id="loginForm" class="space-y-4">
       <div>
         <label class="block text-slate-300 text-sm mb-1">Email</label>
@@ -81,12 +78,11 @@
         <a href="#" class="text-selangor-red hover:underline">Forget Password?</a>
       </div>
       <button id="doLogin" class="btn-primary w-full py-3 rounded-xl text-white font-semibold mt-2 flex items-center justify-center gap-2">
-        <i class="fa-solid fa-arrow-right-to-bracket"></i> Authenticating...
+        <i class="fa-solid fa-arrow-right-to-bracket"></i> Authenticate
       </button>
       <div id="loginError" class="error-text hidden text-center"></div>
     </div>
 
-    <!-- Sign Up Form (hidden initially) -->
     <div id="signupForm" class="space-y-3 hidden">
       <div class="grid grid-cols-2 gap-3">
         <div><input type="text" id="signupName" placeholder="Full name" class="input-field w-full rounded-xl px-3 py-2 text-white text-sm"></div>
@@ -151,9 +147,7 @@
     }
 
     // Detect backend URL
-    const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? 'http://127.0.0.1:8000'
-      : 'https://api.jalan-ready.tk'; // Replace with your production API URL
+    const BACKEND_URL = 'http://127.0.0.1:8000';
 
     // LOGIN
     document.getElementById('doLogin').addEventListener('click', async () => {
@@ -165,7 +159,7 @@
       }
       const btn = document.getElementById('doLogin');
       const originalHtml = btn.innerHTML;
-      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...';
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Authenticating...';
       btn.disabled = true;
 
       try {

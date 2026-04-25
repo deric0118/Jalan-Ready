@@ -9,7 +9,15 @@ from fastapi import FastAPI
 from fastapi import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from core.orchestrator import JalanReadyAgent # Import your Brain!
+
+# Lazy load the orchestrator - only needed for report analysis, not for auth
+try:
+    from .core.orchestrator import JalanReadyAgent
+    HAS_ORCHESTRATOR = True
+except Exception as e:
+    print(f"Warning: Could not load orchestrator: {e}")
+    HAS_ORCHESTRATOR = False
+    JalanReadyAgent = None
 
 app = FastAPI()
 
@@ -21,8 +29,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize your Agent
-agent = JalanReadyAgent()
+# Initialize your Agent (only if available)
+agent = JalanReadyAgent() if HAS_ORCHESTRATOR else None
 
 USER_DB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "data", "user_data.db")

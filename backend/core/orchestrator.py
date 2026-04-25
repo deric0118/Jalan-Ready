@@ -4,16 +4,16 @@ from dotenv import load_dotenv
 
 from zhipuai import ZhipuAI
 
-# Explicit backend imports
-from backend.services.vision_service import VisionService
-from backend.services.traffic_service import TrafficService
-from backend.services.weather_service import WeatherService
-from backend.services.geocoding_service import GeocodingService # <-- NEW
-from backend.core.database_manager import DatabaseManager
-from backend.core.state_manager import StateManager 
+# Explicit backend imports (using relative imports)
+from ..services.vision_service import VisionService
+from ..services.traffic_service import TrafficService
+from ..services.weather_service import WeatherService
+from ..services.geocoding_service import GeocodingService # <-- NEW
+from .database_manager import DatabaseManager
+from .state_manager import StateManager 
 
 # Import the engine tool for user communication
-from backend.core.engine_tools import tool_c_user_communicator # <-- NEW
+from .engine_tools import tool_c_user_communicator # <-- NEW
 
 load_dotenv(override=True)
 

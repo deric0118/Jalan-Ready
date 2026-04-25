@@ -87,7 +87,7 @@ class EmailService:
                                         </div>
 
                                         <div style="text-align: center; margin-top: 35px;">
-                                            <a href="https://your-dashboard-link.com" 
+                                            <a href="http://127.0.0.1:8080/frontend/contractor.html" 
                                                style="background-color: #2c3e50; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 14px; display: inline-block;">
                                                 Review in Contractor Dashboard
                                             </a>

@@ -30,9 +30,10 @@ app = FastAPI()
 # Allow your HTML/JS frontend to talk to this Python server
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In a real app, put your frontend URL here
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods (POST, GET, etc.)
+    allow_headers=["*"],  # Allows all headers
 )
 
 # Initialize your Agent (only if available)
@@ -218,53 +219,67 @@ async def analyze_report(
 
     temp_dir = None
     try:
-        # Save uploaded image
+        # 1. Save uploaded image
         temp_dir = tempfile.mkdtemp(prefix="jalan_ready_")
         image_path = Path(temp_dir) / image.filename
+        
         with open(image_path, "wb") as f:
             content = await image.read()
             f.write(content)
-
-        # Build location string
+        
         location_input = location if location else "Unknown location"
         if note:
             location_input += f" ({note})"
-
+        
+        # 2. Call the AI Orchestrator
         result = agent.process_new_report(str(image_path), location_input)
+        
+        # 3. --- NEW: SAVE TO JALAN-READY.DB ---
+        db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "jalan-ready.db"))
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # Check if the AI marked it as a duplicate
+        if result.get("is_duplicate"):
+            target_id = result.get("duplicate_of_id")
+            if target_id:
+                cursor.execute("""
+                    UPDATE reports 
+                    SET report_count = report_count + 1, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                """, (target_id,))
+                conn.commit()
+                result['id'] = target_id # Send the old ID back to the frontend
+        else:
+            # It's a new report, create a new row!
+            wf_state = result.get('workflow_state', 'NEW')
+            if wf_state == "PENDING_WEATHER":
+                wf_state = "AWAITING_INFO"
+                
+            cursor.execute("""
+                INSERT INTO reports (
+                    latitude, longitude, road_name, defect_type, urgency_score, workflow_state, 
+                    jurisdiction, reasoning_path, timestamp, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            """, (
+                result.get('latitude', 0.0),
+                result.get('longitude', 0.0),
+                result.get('road_name', 'Unknown'),
+                result.get('defect_type', 'Unknown'),
+                result.get('urgency_score', 0),
+                wf_state,
+                result.get('assigned_authority', 'Unknown'),
+                result.get('reasoning_path', '')
+            ))
+            
+            # Grab the newly generated database ID and attach it to the result
+            result['id'] = cursor.lastrowid
+            conn.commit()
+            
+        conn.close()
+        # --------------------------------------
 
-        if "error" in result:
-            detail = result["error"]
-            status_code = 503 if "Z.ai" in detail or "API key" in detail or "authentication failed" in detail.lower() else 500
-            raise HTTPException(status_code=status_code, detail=detail)
-
-        # Extract fields (adjust keys based on your orchestrator's actual output)
-        work_order_id = result.get("work_order_id", str(uuid.uuid4()))
-        defect_type = result.get("defect_type", "Pothole")
-        confidence = result.get("confidence", 0.95)
-        priority = result.get("priority", "P2")
-        authority = result.get("assigned_authority", "MBPJ")
-        reasoning = result.get("reasoning", "")
-        location_desc = result.get("location_description", location_input)
-        urgency_score = result.get("urgency_score", 50)  # Default 50 if not provided
-        lat_val = lat if lat is not None else result.get("latitude", 0.0)
-        lon_val = lon if lon is not None else result.get("longitude", 0.0)
-
-        # Store using DatabaseManager
-        agent.db.create_work_order(
-            id=work_order_id,
-            defect_type=defect_type,
-            priority=priority,
-            authority=authority,
-            confidence=confidence,
-            reasoning=reasoning,
-            location=location_desc,
-            lat=lat_val,
-            lon=lon_val,
-            image_path=str(image_path),
-            status="NEW"   # or "pending_approval"
-        )
-
-        # Return frontend-compatible response
+        # 4. Return to Frontend
         return {
             "success": True,
             "work_order": {
@@ -287,53 +302,20 @@ async def analyze_report(
         if temp_dir and os.path.exists(temp_dir):
             shutil.rmtree(temp_dir, ignore_errors=True)
 
-@app.post("/api/dispatch")
-async def dispatch_work_order(payload: dict, background_tasks: BackgroundTasks):
-    wo_id = payload.get("work_order_id")
-    if not wo_id:
-        raise HTTPException(status_code=400, detail="Missing work_order_id")
-
-    wo = agent.db.get_work_order(wo_id)
-    if not wo:
-        raise HTTPException(status_code=404, detail="Work order not found")
-
-    # Allow only if status is 'NEW' or 'pending_approval'
-    if wo["workflow_state"] not in ["NEW", "pending_approval"]:
-        return {"success": False, "message": f"Work order already {wo['workflow_state']}"}
-
-    # Prepare email data
-    email_data = {
-        "yolo_label": wo["defect_type"],
-        "road_name": wo["road_name"],
-        "confidence": wo["confidence"],
-        "weather": "Clear",   # optionally fetch live weather
-        "lat": wo["latitude"],
-        "lon": wo["longitude"]
-    }
-
-    # Get jurisdiction contact using your existing method
-    # Note: you may need to pass district/road_type – 
-    # for now, derive from location or set default
-    jurisdiction = agent.db.lookup_jurisdiction_contact(
-        district="Petaling",   # example; you can extract from wo["road_name"]
-        road_type="primary"
-    )
-    recipient = jurisdiction.get("safe_dispatch_email", "default@example.com")
-    authority_name = jurisdiction.get("authority", wo["jurisdiction"])
-
-    # Send email in background
-    background_tasks.add_task(
-        agent.email_service.send_report,
-        recipient_email=recipient,
-        authority=authority_name,
-        urgency=wo["urgency_score"],
-        data=email_data,
-        image_path=wo["image_path"]
-    )
-
-    # Update status
-    agent.db.update_work_order_status(wo_id, "REPORTED")   # or "DISPATCHED"
-
-    return {"success": True, "message": f"Work order dispatched to {authority_name}"}
+@app.get("/api/report/{report_id}")
+def get_report_status(report_id: int):
+    """Allows the frontend to check the real-time status of a work order."""
+    db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "jalan-ready.db"))
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT workflow_state FROM reports WHERE id = ?", (report_id,))
+    row = cursor.fetchone()
+    conn.close()
+    
+    if row:
+        return {"workflow_state": row["workflow_state"]}
+    raise HTTPException(status_code=404, detail="Report not found")
 
 # Run this file using: uvicorn app:app --reload
